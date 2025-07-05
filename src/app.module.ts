@@ -9,6 +9,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { AuthGuard } from './auth/guards/auth.guard';
 import configuration from './config/configuration';
 import { AnniversaryModule } from './anniversaries/anniversary.module';
+import { PlanModule } from './plan/plan.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AnniversaryModule } from './anniversaries/anniversary.module';
     }),
     UserModule,
     AuthModule,
+    PlanModule,
     AnniversaryModule,
   ],
   providers: [

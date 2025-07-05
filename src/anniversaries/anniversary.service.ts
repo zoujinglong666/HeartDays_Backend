@@ -30,7 +30,7 @@ export class AnniversaryService {
   async findByUser(userId: string): Promise<Anniversary[]> {
     return await this.anniversaryRepo.find({
       where: { user_id: userId },
-      order: { date: 'ASC' },
+      order: { created_at: 'DESC' },
     });
   }
 
@@ -44,8 +44,8 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<Anniversary> {
     const entity = await this.findOne(id);
-    await this.anniversaryRepo.remove(entity);
+     return await this.anniversaryRepo.remove(entity);
   }
 }

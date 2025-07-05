@@ -1,0 +1,21 @@
+CREATE TABLE plans (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+
+  -- 状态: 0=pending, 1=in_progress, 2=completed
+  status SMALLINT CHECK (status IN (0, 1, 2)) DEFAULT 0,
+
+  -- 优先级: 0=low, 1=medium, 2=high
+  priority SMALLINT CHECK (priority IN (0, 1, 2)) DEFAULT 1,
+
+  date TIMESTAMP,                -- 计划执行日期
+  reminder_at TIMESTAMP,         -- 提醒时间（可选）
+  completed_at TIMESTAMP,        -- 完成时间（仅 status = 2）
+  remarks TEXT,                  -- 备注说明
+
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);

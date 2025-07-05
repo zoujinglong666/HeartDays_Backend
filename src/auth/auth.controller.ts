@@ -4,11 +4,9 @@ import {
   ApiOperation, 
   ApiResponse, 
   ApiBody,
-  ApiBearerAuth 
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from '../user/dto/login.dto';
-import { CreateUserDto } from '../user/dto/create-user.dto';
 import { Public } from './decorators/public.decorator';
 import { ApiResponseDto, LoginResponseDto } from '../common/dto/api-response.dto';
 import { RegisterUserDto } from '../user/dto/register-user.dto';

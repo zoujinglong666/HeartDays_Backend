@@ -26,7 +26,6 @@ export class User {
 
   @ApiProperty({ description: '邮箱地址' })
   @Column({ unique: true })
-  @Index()
   email?: string;
 
   @ApiProperty({ description: '密码（加密）' })
