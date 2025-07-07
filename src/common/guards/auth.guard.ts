@@ -6,8 +6,6 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { requestContext } from '../context/request-context';
-
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private jwtService: JwtService) {}
@@ -28,14 +26,6 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('无效的认证令牌');
     }
   }
-  handleRequest(err, user, info, context) {
-    // 存储当前用户到 AsyncLocalStorage
-    if (user) {
-      requestContext.getStore()!.user = user;
-    }
-    return user;
-  }
-
 
   private extractTokenFromHeader(request: Request): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];

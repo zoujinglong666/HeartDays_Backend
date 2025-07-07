@@ -32,6 +32,8 @@
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "cos-nodejs-sdk-v5": "2.16.0-beta.3",
+    "multer": "^2.0.1",
     "nestjs-typeorm-paginate": "^4.1.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

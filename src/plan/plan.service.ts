@@ -152,6 +152,8 @@ export class PlanService {
     }
 
     planItem.status = newStatus;
+
+    planItem.completed_at = newStatus === 2 ? new Date() : undefined;
     await this.planRepository.save(planItem);
 
     return planItem;

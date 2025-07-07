@@ -8,7 +8,7 @@ export default () => ({
     database: process.env.DATABASE_NAME || 'heart_days',
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-secret-key',
+    secret: process.env.JWT_SECRET || 'jwt-secret-key',
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   },
   redis: {

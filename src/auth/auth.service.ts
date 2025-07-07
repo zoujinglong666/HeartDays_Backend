@@ -42,13 +42,13 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('账号/邮箱或密码错误');
     }
+    // 生成token
     const payload = {
       email: user.email,
       userAccount: user.userAccount,
       sub: user.id,
       roles: user.roles,
     };
-
     return {
       access_token: this.jwtService.sign(payload),
       user: {
@@ -57,6 +57,9 @@ export class AuthService {
         userAccount: user.userAccount,
         email: user.email,
         roles: user.roles,
+        avatar: user.avatar,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     };
   }
@@ -88,8 +91,8 @@ export class AuthService {
     // 创建用户
     const user = this.userRepository.create({
       ...registerUserDto,
-      name:"无名",
-      email:randomUUID({
+      name: '无名',
+      email: randomUUID({
         disableEntropyCache: true,
       }),
       roles: ['user'],
@@ -97,8 +100,6 @@ export class AuthService {
     });
 
     return await this.userRepository.save(user);
-
     // 返回登录信息
-
   }
 }

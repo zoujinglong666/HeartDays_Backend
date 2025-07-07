@@ -1,5 +1,5 @@
-// src/plan/dto/plan-query.dto.ts
-import { IsOptional, IsString, IsInt, Min } from 'class-validator';
+
+import { IsOptional, IsInt, } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginateDto } from '../../common/dto/paginate.dto';
 

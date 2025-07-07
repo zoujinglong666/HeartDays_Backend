@@ -45,7 +45,7 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-  async update1(id: number, dto: UpdateAnniversaryDto): Promise<Anniversary> {
+  async updateTest(id: number, dto: UpdateAnniversaryDto): Promise<Anniversary> {
     const entity = await this.findOne(id);
     const { user_id, ...rest } = dto;
 
