@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { requestContext } from '../../common/context/request-context';
 // 该代码实现了一个基于 JWT 的守卫（AuthGuard），用于验证用户身份。功能如下：
 //
 // 1. **判断是否为公开接口**：通过 `@Public()` 装饰器标记的接口无需认证。
@@ -36,15 +37,22 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
+    console.log(request, 'request');
     console.log(token, 'token');
 
     if (!token) {
       throw new UnauthorizedException('未提供认证令牌，请先登录');
     }
 
+
+
+
     try {
       const payload = await this.jwtService.verifyAsync(token);
+      // 存储到 AsyncLocalStorage
       request['user'] = payload;
+      console.log(`User authenticated: ${JSON.stringify(payload)}`);
+      requestContext.getStore()!.user = request.user;
       return true;
     } catch {
       throw new UnauthorizedException('认证令牌无效或已过期，请重新登录');

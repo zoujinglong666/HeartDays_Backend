@@ -1,43 +1,60 @@
 import { Column, CreateDateColumn, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsDate, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreatePlanDto {
 
   @ApiProperty({ description: '用户ID', required: false })
-  @Column({ type: 'uuid', nullable: true })
-  user_id: string;
+  @IsOptional()
+  @IsUUID()
+  user_id?: string;
 
-  @Column()
-  title: string;
+  @ApiProperty({ description: '标题', required: false })
+  @IsOptional()
+  @IsString()
+  title?: string;
 
-  @Column({ nullable: true })
-  @ApiProperty({ description: '计划描述' })
+  @ApiProperty({ description: '描述', required: false })
+  @IsOptional()
+  @IsString()
   description?: string;
 
-  @Column({ nullable: true })
-  @ApiProperty({ description: '计划类别' })
+  @ApiProperty({ description: '分类', required: false })
+  @IsOptional()
+  @IsString()
   category?: string;
 
-  @Column({ type: 'smallint', default: 0 })
-  status: number; // 0=pending, 1=in_progress, 2=completed
+  @ApiProperty({ description: '状态', required: false })
+  @IsOptional()
+  @IsNumber()
+  status?: number;
 
-  @Column({ type: 'smallint', default: 1 })
-  priority: number; // 0=low, 1=medium, 2=high
+  @ApiProperty({ description: '优先级', required: false })
+  @IsOptional()
+  @IsNumber()
+  priority?: number;
 
+  @ApiProperty({ description: '计划日期', required: false })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
   date?: Date;
 
-  @ApiProperty({ description: '提醒时间' })
+  @ApiProperty({ description: '提醒时间', required: false })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
   reminder_at?: Date;
 
+  @ApiProperty({ description: '完成时间', required: false })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  completed_at?: Date;
 
-  @Column({ nullable: true })
+  @ApiProperty({ description: '备注', required: false })
+  @IsOptional()
+  @IsString()
   remarks?: string;
-
-  @ApiProperty({ description: '创建时间' })
-  @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
-
-  @ApiProperty({ description: '更新时间' })
-  @UpdateDateColumn({ name: 'updated_at' })
-  updated_at: Date;
 }

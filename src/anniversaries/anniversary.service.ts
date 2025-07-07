@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Anniversary } from './anniversary.entity';
 import { CreateAnniversaryDto } from './dto/create-anniversary.dto';
 import { UpdateAnniversaryDto } from './dto/update-anniversary.dto';
+import { merge } from 'rxjs';
 
 @Injectable()
 export class AnniversaryService {
@@ -44,7 +45,19 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-  async remove(id: number): Promise<Anniversary> {
+  async update1(id: number, dto: UpdateAnniversaryDto): Promise<Anniversary> {
+    const entity = await this.findOne(id);
+    const { user_id, ...rest } = dto;
+
+    // TypeORM 的 merge 方法
+    this.anniversaryRepo.merge(entity, rest);
+
+    return await this.anniversaryRepo.save(entity);
+  }
+
+
+
+async remove(id: number): Promise<Anniversary> {
     const entity = await this.findOne(id);
      return await this.anniversaryRepo.remove(entity);
   }

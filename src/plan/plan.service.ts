@@ -18,6 +18,7 @@ import {
   CommonResultCode,
 } from '../common/exceptions/business.exception';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { getCurrentUser } from '../common/context/request-context';
 
 @Injectable()
 export class PlanService {
@@ -27,8 +28,15 @@ export class PlanService {
   ) {}
 
   create(createPlanDto: CreatePlanDto) {
+    const user = getCurrentUser();
+    if (!user) {
+      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+    }
     const plan = this.planRepository.create(createPlanDto);
-    return this.planRepository.save(plan);
+    return this.planRepository.save({
+      ...plan,
+      user_id: user.id,
+    });
   }
 
   findAll() {
@@ -146,6 +154,6 @@ export class PlanService {
     planItem.status = newStatus;
     await this.planRepository.save(planItem);
 
-    return planItem
+    return planItem;
   }
 }

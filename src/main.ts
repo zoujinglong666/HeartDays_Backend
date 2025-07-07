@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import * as os from 'os';
+import { requestContext } from './common/context/request-context';
 
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
@@ -33,7 +34,10 @@ async function bootstrap() {
 
   // 全局响应转换拦截器 - 确保所有响应都经过这个拦截器
   app.useGlobalInterceptors(new TransformInterceptor());
-
+  // 注册 AsyncLocalStorage 中间件
+  app.use((req, res, next) => {
+    requestContext.run({}, () => next());
+  });
   // CORS 配置
   app.enableCors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
