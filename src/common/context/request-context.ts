@@ -6,7 +6,7 @@ type Store = {
 
 export const requestContext = new AsyncLocalStorage<Store>();
 
-export function getCurrentUser() {
+export function getLoginUser() {
   const userInfo = requestContext.getStore()?.user;
 
   if (!userInfo) {

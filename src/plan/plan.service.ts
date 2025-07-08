@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Plan } from './plan.entity';
@@ -9,16 +9,14 @@ import {
   Pagination,
   IPaginationOptions,
 } from 'nestjs-typeorm-paginate';
-import { PaginateDto } from '../common/dto/paginate.dto';
 import { PaginateResult } from '../common/interfaces/paginate-result.interface';
 import { PlanQueryDto } from './dto/plan-query.dto';
-import { Anniversary } from '../anniversaries/anniversary.entity';
 import {
   BusinessException,
   CommonResultCode,
 } from '../common/exceptions/business.exception';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { getCurrentUser } from '../common/context/request-context';
+import { getLoginUser } from '../common/context/request-context';
 
 @Injectable()
 export class PlanService {
@@ -28,7 +26,7 @@ export class PlanService {
   ) {}
 
   create(createPlanDto: CreatePlanDto) {
-    const user = getCurrentUser();
+    const user = getLoginUser();
     if (!user) {
       throw new BusinessException(CommonResultCode.NOT_LOGIN);
     }
@@ -47,14 +45,67 @@ export class PlanService {
     return this.planRepository.findOne({ where: { id } });
   }
 
-  update(id: string, updatePlanDto: UpdatePlanDto) {
-    return this.planRepository.update(id, updatePlanDto);
+  async update(id: string, updatePlanDto: UpdatePlanDto) {
+    if (!id || !updatePlanDto) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
+
+    // 先执行更新操作
+    await this.planRepository.update(id, updatePlanDto);
+
+    // 然后查询并返回更新后的数据
+    const updatedPlan = await this.planRepository.findOne({ where: { id } });
+
+    if (!updatedPlan) {
+      throw new NotFoundException('计划不存在');
+    }
+
+    return updatedPlan;
   }
 
-  remove(id: string) {
-    return this.planRepository.delete(id);
-  }
+  async remove(id: string) {
+    if (!id) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
 
+    // 获取当前登录用户
+    const user = getLoginUser();
+    if (!user) {
+      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+    }
+
+    // 查找要删除的计划
+    const plan = await this.planRepository.findOne({ where: { id } });
+    if (!plan) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
+
+    // 检查是否是用户自己的数据
+    if (plan.user_id !== user.id) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
+
+    return await this.planRepository.delete(id);
+  }
+  async remove1(id: string) {
+    if (!id) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
+
+    const user = getLoginUser();
+    if (!user) {
+      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+    }
+
+    // 直接根据 id 和 user_id 删除，如果不存在或不属于当前用户，删除操作会返回 affected: 0
+    const result = await this.planRepository.delete({ id, user_id: user.id });
+
+    if (result.affected === 0) {
+      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+    }
+
+    return { message: '删除成功' };
+  }
   async findAllPage(options: IPaginationOptions): Promise<Pagination<Plan>> {
     const queryBuilder = this.planRepository.createQueryBuilder('plan');
     queryBuilder.orderBy('plan.created_at', 'DESC');
@@ -104,9 +155,6 @@ export class PlanService {
   // plan.service.ts
   async findByUser(query: PlanQueryDto): Promise<PaginateResult<Plan>> {
     const { page = 1, pageSize = 10, userId } = query;
-    console.log('query', query);
-    console.log('userId', userId);
-
     if (!userId) {
       throw new Error('userId is required');
     }
@@ -143,19 +191,21 @@ export class PlanService {
       throw new BusinessException(CommonResultCode.PARAMS_ERROR);
     }
 
-    // 取模实现循环切换
-    const newStatus = (status + 1) % 3;
+    const user = getLoginUser();
+
+    if (!user) {
+      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+    }
 
     const planItem = await this.planRepository.findOne({ where: { id } });
     if (!planItem) {
       throw new BusinessException(CommonResultCode.PARAMS_ERROR);
     }
-
+    // 取模实现循环切换
+    const newStatus = (status + 1) % 3;
     planItem.status = newStatus;
-
     planItem.completed_at = newStatus === 2 ? new Date() : undefined;
     await this.planRepository.save(planItem);
-
     return planItem;
   }
 }

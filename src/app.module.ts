@@ -50,6 +50,7 @@ import { PlanModule } from './plan/plan.module';
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
+  
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

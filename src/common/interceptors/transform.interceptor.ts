@@ -35,7 +35,7 @@ export class TransformInterceptor<T>
         return {
           data: data || null,
           code: 200,
-          message: 'success',
+          message: 'ok',
           timestamp: new Date().toISOString(),
         };
       }),
