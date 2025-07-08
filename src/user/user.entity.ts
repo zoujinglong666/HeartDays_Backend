@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Gender } from '../enums/genderEnum';
 
 @Entity('users')
 export class User {
@@ -40,6 +41,18 @@ export class User {
   @ApiProperty({ description: '用户角色', type: [String] })
   @Column({ type: 'simple-array', default: ['user'] })
   roles: string[];
+
+  @ApiProperty({
+    description: '性别',
+    enum: Gender,
+    default: Gender.Secret
+  })
+  @Column({
+    type: 'enum',
+    enum: Gender,
+    default: Gender.Secret
+  })
+  gender: Gender;
 
   @ApiProperty({ description: '是否激活' })
   @Column({ default: true })

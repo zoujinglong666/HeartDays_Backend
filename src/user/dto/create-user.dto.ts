@@ -1,6 +1,7 @@
-import { IsEmail, IsString, MinLength, IsOptional, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, MaxLength, Matches, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BaseDto } from '../../common/dto/base.dto';
+import { Gender } from '../../enums/genderEnum';
 
 export class CreateUserDto extends BaseDto {
   // @ApiProperty({
@@ -50,4 +51,15 @@ export class CreateUserDto extends BaseDto {
   @IsOptional()
   @IsString()
   avatar?: string;
+
+
+  @ApiPropertyOptional({
+    description: '性别',
+    enum: Gender,
+    default: Gender.Secret
+  })
+  @IsOptional()
+  @IsEnum(Gender, { message: '性别值无效' })
+  gender?: Gender;
+
 } 

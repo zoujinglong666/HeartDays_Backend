@@ -7,6 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Gender } from '../../enums/genderEnum';
 
 export class UpdateUserDto {
   @ApiProperty({
@@ -49,6 +50,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: '请输入有效的邮箱地址' })
   email?: string;
+
+
+  @IsOptional()
+  gender?: Gender;
+
+
 
 
 }

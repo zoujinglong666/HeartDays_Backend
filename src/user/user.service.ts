@@ -129,8 +129,8 @@ export class UserService {
         throw new UserAccountAlreadyExistsException(updateUserDto.userAccount);
       }
     }
-
-    Object.assign(user, updateUserDto);
+    // TypeORM 的 merge 方法
+    this.userRepo.merge(user, updateUserDto);
     return await this.userRepo.save(user);
   }
 

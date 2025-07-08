@@ -1,5 +1,6 @@
 // user.vo.ts
 import { Expose } from 'class-transformer';
+import { Gender } from '../../enums/genderEnum';
 
 export class UserVO {
   @Expose()
@@ -22,4 +23,8 @@ export class UserVO {
 
   @Expose()
   updatedAt?: Date;
+
+
+  @Expose()
+  gender?: Gender;
 }

@@ -62,6 +62,7 @@ export class AuthService {
         avatar: user.avatar,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        gender: user.gender,
       },
     };
   }

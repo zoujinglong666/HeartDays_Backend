@@ -1,22 +1,26 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { PlanModule } from './plan/plan.module';
+import { AnniversaryModule } from './anniversaries/anniversary.module';
+import { RedisModule } from './redis/redis.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AuthGuard } from './auth/guards/auth.guard';
 import configuration from './config/configuration';
-import { AnniversaryModule } from './anniversaries/anniversary.module';
-import { PlanModule } from './plan/plan.module';
-
+import { AnniversaryCacheTask } from './task/anniversaries-cache.task';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -40,6 +44,7 @@ import { PlanModule } from './plan/plan.module';
       }),
       inject: [ConfigService],
     }),
+    RedisModule,
     UserModule,
     AuthModule,
     PlanModule,
@@ -50,11 +55,15 @@ import { PlanModule } from './plan/plan.module';
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
-  
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
     },
+    AnniversaryCacheTask, // 注册定时任务
   ],
 })
 export class AppModule {}
