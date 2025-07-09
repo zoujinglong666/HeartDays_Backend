@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { requestContext } from '../../common/context/request-context';
+import { RedisService } from '../../redis/redis.service';
 // 该代码实现了一个基于 JWT 的守卫（AuthGuard），用于验证用户身份。功能如下：
 //
 // 1. **判断是否为公开接口**：通过 `@Public()` 装饰器标记的接口无需认证。
@@ -22,6 +23,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
+    private redisService: RedisService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,9 +46,15 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync(token);
+
       // 存储到 AsyncLocalStorage
       request['user'] = payload;
       console.log(`User authenticated: ${JSON.stringify(payload)}`);
+
+      const userId = request.user?.sub || request.user?.id || '';
+      if (userId) {
+        await this.redisService.set(`online:user:${userId}`, '1', 60 * 10); // 10分钟过期
+      }
       requestContext.getStore()!.user = request.user;
       return true;
     } catch {

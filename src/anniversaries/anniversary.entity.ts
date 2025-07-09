@@ -22,7 +22,7 @@ export class Anniversary {
   description?: string;
 
   @ApiProperty({ description: '日期' })
-  @Column({ type: 'date' })
+  @Column({ type: 'timestamp', nullable: true })
   date: string;
 
   @ApiProperty({ description: '图标' })

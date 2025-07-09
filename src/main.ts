@@ -33,7 +33,7 @@ async function bootstrap() {
   );
 
   // 全局响应转换拦截器 - 确保所有响应都经过这个拦截器
-  app.useGlobalInterceptors(new TransformInterceptor());
+  // app.useGlobalInterceptors(new TransformInterceptor());
   // 注册 AsyncLocalStorage 中间件
   app.use((req, res, next) => {
     requestContext.run({}, () => next());

@@ -67,4 +67,8 @@ export class RedisService {
 
     return result;
   }
+
+  async keys(pattern: string): Promise<string[]> {
+    return await this.redis.keys(pattern);
+  }
 }

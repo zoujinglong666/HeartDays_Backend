@@ -186,9 +186,12 @@ export class AnniversaryCacheTask {
     // await this.cacheAllAnniversaries();
   }
 
-  @Cron('0 * * * * *') // 每分钟的第0秒执行
-  async testCacheTask1() {
-    console.log('【测试】当前时间：', new Date().toISOString());
-    this.logger.log('【测试】每分钟执行一次的定时任务触发！');
+  @Cron('0 * * * * *') // 每分钟统计一次
+  async countOnlineUsers() {
+    // 获取所有在线用户的 key
+    const keys = await this.redisService.keys('online:user:*');
+    const onlineCount = keys.length;
+    console.log('当前在线用户数:', onlineCount);
+    this.logger.log(`当前在线用户数: ${onlineCount}`);
   }
 }
