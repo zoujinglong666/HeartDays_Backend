@@ -80,8 +80,11 @@ export class RedisService {
     await this.redis.expire(key, seconds);
   }
 
+  // ✅ 集合移除元素
+  async srem(key: string, member: string): Promise<number> {
+    return this.redis.sRem(key, member);
+  }
 
 
-x
 
 }

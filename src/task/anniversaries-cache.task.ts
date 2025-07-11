@@ -151,12 +151,10 @@ export class AnniversaryCacheTask {
    */
   private countByType(anniversaries: Anniversary[]): Record<string, number> {
     const counts: Record<string, number> = {};
-
     for (const anniversary of anniversaries) {
       const type = anniversary.type;
       counts[type] = (counts[type] || 0) + 1;
     }
-
     return counts;
   }
 
@@ -165,33 +163,31 @@ export class AnniversaryCacheTask {
    */
   private countByMonth(anniversaries: Anniversary[]): Record<string, number> {
     const counts: Record<string, number> = {};
-
     for (const anniversary of anniversaries) {
       const date = new Date(anniversary.date);
       const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       counts[month] = (counts[month] || 0) + 1;
     }
-
     return counts;
   }
 
-  /**
-   * 每5分钟执行一次，测试用
-   */
-  @Cron('0 */5 * * * *') // 每5分钟的第0秒执行
-  async testCacheTask() {
-    this.logger.log('【测试】每5分钟执行一次的定时任务触发！');
-    console.log('【测试】当前时间：', new Date().toISOString());
-    // 你可以调用实际业务逻辑
-    // await this.cacheAllAnniversaries();
-  }
+  // /**
+  //  * 每5分钟执行一次，测试用
+  //  */
+  // @Cron('0 */5 * * * *') // 每5分钟的第0秒执行
+  // async testCacheTask() {
+  //   this.logger.log('【测试】每5分钟执行一次的定时任务触发！');
+  //   console.log('【测试】当前时间：', new Date().toISOString());
+  //   // 你可以调用实际业务逻辑
+  //   // await this.cacheAllAnniversaries();
+  // }
 
-  @Cron('0 * * * * *') // 每分钟统计一次
-  async countOnlineUsers() {
-    // 获取所有在线用户的 key
-    const keys = await this.redisService.keys('online:user:*');
-    const onlineCount = keys.length;
-    console.log('当前在线用户数:', onlineCount);
-    this.logger.log(`当前在线用户数: ${onlineCount}`);
-  }
+  // @Cron('0 * * * * *') // 每分钟统计一次
+  // async countOnlineUsers() {
+  //   // 获取所有在线用户的 key
+  //   const keys = await this.redisService.keys('online:user:*');
+  //   const onlineCount = keys.length;
+  //   console.log('当前在线用户数:', onlineCount);
+  //   this.logger.log(`当前在线用户数: ${onlineCount}`);
+  // }
 }

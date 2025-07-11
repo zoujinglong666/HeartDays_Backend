@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { SessionService } from './session.service';
 import { RefreshTokenDto, TokenResponseDto } from './dto/refresh-token.dto';
 import { Request } from 'express';
+import { SimpleEncryptor } from '../common/utils/simpleEncryptor.utils';
 
 @Injectable()
 export class AuthService {
@@ -42,7 +43,8 @@ export class AuthService {
     if (!userAccount) {
       throw new UnauthorizedException('请提供账号或邮箱');
     }
-    const user = await this.validateUser(userAccount, password);
+    const decryptedPassword = SimpleEncryptor.decrypt(password, 'mySecret');
+    const user = await this.validateUser(userAccount, decryptedPassword);
     if (!user) {
       throw new UnauthorizedException('账号/邮箱或密码错误');
     }

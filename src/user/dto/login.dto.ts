@@ -10,14 +10,6 @@ export class LoginDto {
   @IsString({ message: '账号不能为空' })
   userAccount?: string;
 
-  @ApiPropertyOptional({
-    description: '邮箱地址',
-    example: 'zhangsan@example.com',
-  })
-  @ValidateIf(o => !o.userAccount)
-  @IsString({ message: '邮箱不能为空' })
-  email?: string;
-
   @ApiProperty({
     description: '密码',
     example: '123456',

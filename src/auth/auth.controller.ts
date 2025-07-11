@@ -29,7 +29,6 @@ export class AuthController {
     description: '登录成功',
     type: ApiResponseDto<TokenResponseDto>
   })
-  @ApiResponse({ status: 401, description: '登录失败' })
   async login(@Body() loginDto: LoginDto, @Req() req: Request) {
     // 获取并解析设备信息
     const deviceInfo = parseDeviceInfo(req.headers['user-agent'] || '', req.ip || req.connection.remoteAddress || '');
@@ -85,6 +84,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: '未授权' })
   async logout(@Req() req: Request) {
+    console.log('有用户正在悄悄登出', req.user);
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {

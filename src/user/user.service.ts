@@ -15,10 +15,10 @@ import {
   EmailAlreadyExistsException,
   UserAccountAlreadyExistsException,
 } from '../common/exceptions/custom.exception';
-import * as bcrypt from 'bcryptjs';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
+import { PasswordUtils } from '../common/utils/password.utils';
 
 @Injectable()
 export class UserService {
@@ -46,7 +46,7 @@ export class UserService {
       throw new EmailAlreadyExistsException(<string>createUserDto?.email);
     }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = PasswordUtils.encryptPassword(createUserDto.password);
 
     const user = this.userRepo.create({
       ...createUserDto,
