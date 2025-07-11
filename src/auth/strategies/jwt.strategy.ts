@@ -1,11 +1,15 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private authService: AuthService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -14,10 +18,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // 验证会话是否有效
+    const sessionToken = payload.sessionToken;
+    if (!sessionToken) {
+      throw new UnauthorizedException('无效的会话令牌');
+    }
+
+    // 验证会话是否在Redis中存在且有效
+    const isValidSession = await this.authService.validateSession(
+      payload.sub,
+      sessionToken,
+    );
+
+    if (!isValidSession) {
+      throw new UnauthorizedException('会话已失效，请重新登录');
+    }
+
     return {
       userId: payload.sub,
       email: payload.email,
       roles: payload.roles,
+      sessionToken,
     };
   }
 }

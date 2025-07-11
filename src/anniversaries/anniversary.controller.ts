@@ -21,7 +21,7 @@ import { AnniversaryService } from './anniversary.service';
 import { CreateAnniversaryDto } from './dto/create-anniversary.dto';
 import { UpdateAnniversaryDto } from './dto/update-anniversary.dto';
 import { Anniversary } from './anniversary.entity';
-import { CurrentUser } from '../common/decorators/user.decorator';
+import { CurrentUser } from '../auth/decorators/user.decorator';
 
 @ApiTags('anniversaries')
 @ApiBearerAuth('JWT-auth')

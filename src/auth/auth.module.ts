@@ -9,11 +9,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SessionService } from './session.service';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     PassportModule,
+    RedisModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -24,7 +27,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthGuard, RolesGuard],
-  exports: [AuthService, AuthGuard, RolesGuard, JwtModule],
+  providers: [AuthService, SessionService, JwtStrategy, AuthGuard, RolesGuard],
+  exports: [AuthService, SessionService, AuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}
