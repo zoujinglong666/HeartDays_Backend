@@ -21,11 +21,10 @@ export class AuthService {
     private sessionService: SessionService,
   ) {}
 
-  async validateUser(accountOrEmail: string, password: string): Promise<any> {
+  async validateUser(account: string, password: string): Promise<any> {
     const user = await this.userRepository.findOne({
       where: [
-        { userAccount: accountOrEmail, isActive: true },
-        { email: accountOrEmail, isActive: true },
+        { userAccount: account, isActive: true },
       ],
     });
 
@@ -58,7 +57,6 @@ export class AuthService {
 
     // 存储新会话
     const ua = req?.headers['user-agent'] || '';
-    const deviceId = deviceInfo?.deviceId;
     await this.sessionService.storeUserSession(
       user.id,
       sessionToken,
@@ -66,7 +64,6 @@ export class AuthService {
       deviceInfo,
       ua,
     );
-
     // 生成访问令牌，包含会话令牌
     const payload = {
       email: user.email,
@@ -77,14 +74,12 @@ export class AuthService {
       name: user.name,
       sessionToken, // 添加会话令牌到JWT
     };
-    
     const accessToken = this.jwtService.sign(payload);
-    
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
       session_token: sessionToken,
-      expires_in: 5 * 60, // 5分钟（测试用）
+      expires_in: 2 * 60 * 60, // 2小时
       refresh_expires_in: 7 * 24 * 60 * 60, // 7天
     };
   }
@@ -160,10 +155,12 @@ export class AuthService {
     const deviceId = req?.body?.deviceId || undefined;
     // 刷新频率限制
     const refreshInfo = await this.sessionService.validateRefreshToken(refresh_token, ua, deviceId);
+    console.log('刷新令牌验证结果', refreshInfo);
     if (!refreshInfo) {
       throw new UnauthorizedException('刷新令牌无效、已过期或设备环境不一致');
     }
     const canRefresh = await this.sessionService.checkRefreshLimit(refreshInfo.userId);
+    console.log('刷新频率限制', canRefresh);
     if (!canRefresh) {
       throw new UnauthorizedException('刷新操作过于频繁，请稍后再试');
     }
