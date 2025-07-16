@@ -89,8 +89,23 @@ export class AuthService {
       !registerUserDto.userAccount ||
       !registerUserDto.password ||
       !registerUserDto.confirmPassword
+
     ) {
       throw new UnauthorizedException('请填写完整的注册信息');
+    }
+    if (!registerUserDto.email) {
+      throw new UnauthorizedException('请填写邮箱');
+    }
+    // 检查邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(registerUserDto.email)) {
+      throw new UnauthorizedException('邮箱格式不正确');
+    }
+   
+
+    // 判断密码 和确认密码是否一致
+    if (registerUserDto.password !== registerUserDto.confirmPassword) {
+      throw new UnauthorizedException('密码和确认密码不一致');
     }
     // 检查账号是否已存在
     const existingUserByAccount = await this.userRepository.findOne({
@@ -100,11 +115,13 @@ export class AuthService {
     if (existingUserByAccount) {
       throw new UnauthorizedException('账号已存在');
     }
-    // 判断密码 和确认密码是否一致
-    if (registerUserDto.password !== registerUserDto.confirmPassword) {
-      throw new UnauthorizedException('密码和确认密码不一致');
+    // 新增：检查邮箱是否已存在
+    const existingUserByEmail = await this.userRepository.findOne({
+      where: { email: registerUserDto.email },
+    });
+    if (existingUserByEmail) {
+      throw new UnauthorizedException('邮箱已被注册');
     }
-
     // 加密密码
     const hashedPassword = await bcrypt.hash(registerUserDto.password, 10);
 
@@ -112,9 +129,6 @@ export class AuthService {
     const user = this.userRepository.create({
       ...registerUserDto,
       name: '无名',
-      email: randomUUID({
-        disableEntropyCache: true,
-      }),
       roles: ['user'],
       password: hashedPassword,
     });

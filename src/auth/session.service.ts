@@ -11,7 +11,7 @@ export class SessionService {
    * 生成会话令牌
    */
   generateSessionToken(): string {
-    return randomUUID();
+    return crypto.randomUUID();
   }
 
   /**
@@ -21,7 +21,7 @@ export class SessionService {
   //   return randomBytes(64).toString('hex'); // 128位16进制字符串
   // }
   generateRefreshToken(): string {
-    return randomUUID();
+    return crypto.randomUUID();
   }
 
   /**

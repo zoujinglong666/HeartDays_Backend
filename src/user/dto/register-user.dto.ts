@@ -19,6 +19,9 @@ export class RegisterUserDto extends BaseDto {
 
 
 
+  @IsString()
+  email: string;
+
 
   @ApiProperty({
     description: '密码',

@@ -1,21 +1,90 @@
-CREATE TABLE plans (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT,
+-- Table: public.plans
 
-  -- 状态: 0=pending, 1=in_progress, 2=completed
-  status SMALLINT CHECK (status IN (0, 1, 2)) DEFAULT 0,
+-- DROP TABLE IF EXISTS public.plans;
 
-  -- 优先级: 0=low, 1=medium, 2=high
-  priority SMALLINT CHECK (priority IN (0, 1, 2)) DEFAULT 1,
+CREATE TABLE IF NOT EXISTS public.plans
+(
+    id bigint NOT NULL DEFAULT nextval('plans_id_seq'::regclass),
+    status smallint NOT NULL DEFAULT 0,
+    priority smallint NOT NULL DEFAULT 1,
+    created_at timestamp without time zone NOT NULL DEFAULT now(),
+    updated_at timestamp without time zone NOT NULL DEFAULT now(),
+    user_id uuid,
+    title character varying COLLATE pg_catalog."default" NOT NULL,
+    description character varying COLLATE pg_catalog."default",
+    category character varying COLLATE pg_catalog."default",
+    remarks character varying COLLATE pg_catalog."default",
+    date timestamp without time zone,
+    reminder_at timestamp without time zone,
+    completed_at timestamp without time zone,
+    CONSTRAINT plans_pkey PRIMARY KEY (id)
+    )
 
-  date TIMESTAMP,                -- 计划执行日期
-  reminder_at TIMESTAMP,         -- 提醒时间（可选）
-  completed_at TIMESTAMP,        -- 完成时间（仅 status = 2）
-  remarks TEXT,                  -- 备注说明
+    TABLESPACE pg_default;
 
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+ALTER TABLE IF EXISTS public.plans
+    OWNER to postgres;
+
+
+-- Table: public.anniversaries
+
+-- DROP TABLE IF EXISTS public.anniversaries;
+
+CREATE TABLE IF NOT EXISTS public.anniversaries
+(
+    id integer NOT NULL DEFAULT nextval('anniversaries_id_seq'::regclass),
+    title character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    description text COLLATE pg_catalog."default",
+    icon character varying(10) COLLATE pg_catalog."default" NOT NULL,
+    color character varying(20) COLLATE pg_catalog."default",
+    type character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    is_pinned boolean NOT NULL DEFAULT false,
+    is_highlighted boolean NOT NULL DEFAULT false,
+    created_at timestamp without time zone NOT NULL DEFAULT now(),
+    updated_at timestamp without time zone NOT NULL DEFAULT now(),
+    repetitive_type character varying(10) COLLATE pg_catalog."default",
+    user_id uuid,
+    date timestamp without time zone,
+    CONSTRAINT anniversaries_pkey PRIMARY KEY (id)
+    )
+
+    TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.anniversaries
+    OWNER to postgres;
+
+
+-- Table: public.users
+
+-- DROP TABLE IF EXISTS public.users;
+
+CREATE TABLE IF NOT EXISTS public.users
+(
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
+    name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    email character varying COLLATE pg_catalog."default" NOT NULL,
+    password character varying COLLATE pg_catalog."default" NOT NULL,
+    avatar character varying COLLATE pg_catalog."default",
+    roles text COLLATE pg_catalog."default" NOT NULL DEFAULT '["user"]'::text,
+    "isActive" boolean NOT NULL DEFAULT true,
+    "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+    "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+    "userAccount" character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    gender users_gender_enum NOT NULL DEFAULT '0'::users_gender_enum,
+    CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY (id),
+    CONSTRAINT "UQ_4f3bb4a9f71584ab26713803fe2" UNIQUE ("userAccount"),
+    CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE (email)
+    )
+
+    TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.users
+    OWNER to postgres;
+-- Index: IDX_4f3bb4a9f71584ab26713803fe
+
+-- DROP INDEX IF EXISTS public."IDX_4f3bb4a9f71584ab26713803fe";
+
+CREATE INDEX IF NOT EXISTS "IDX_4f3bb4a9f71584ab26713803fe"
+    ON public.users USING btree
+    ("userAccount" COLLATE pg_catalog."default" ASC NULLS LAST)
+    TABLESPACE pg_default;

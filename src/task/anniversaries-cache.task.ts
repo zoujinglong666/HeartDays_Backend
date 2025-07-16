@@ -104,7 +104,6 @@ export class AnniversaryCacheTask {
   private getUpcomingAnniversaries(anniversaries: Anniversary[]): Anniversary[] {
     const now = new Date();
     const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
     return anniversaries.filter(anniversary => {
       const anniversaryDate = new Date(anniversary.date);
       const nextAnniversary = this.getNextAnniversaryDate(anniversaryDate);
