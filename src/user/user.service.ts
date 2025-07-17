@@ -129,6 +129,18 @@ export class UserService {
         throw new UserAccountAlreadyExistsException(updateUserDto.userAccount);
       }
     }
+
+    // 检查邮箱是否被其他用户使用
+    if (
+      updateUserDto.email &&
+      updateUserDto.email !== user.email
+    ) {
+      const existingUserByEmail = await this.findByEmail(updateUserDto.email);
+      if (existingUserByEmail && existingUserByEmail.id !== id) {
+        throw new EmailAlreadyExistsException(updateUserDto.email);
+      }
+    }
+
     // TypeORM 的 merge 方法
     this.userRepo.merge(user, updateUserDto);
     return await this.userRepo.save(user);

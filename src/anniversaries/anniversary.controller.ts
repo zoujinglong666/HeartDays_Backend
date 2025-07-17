@@ -74,7 +74,11 @@ export class AnniversaryController {
   @ApiOperation({ summary: '删除纪念日' })
   @ApiParam({ name: 'id', type: Number })
   @ApiResponse({ status: 204 })
-  async remove(@Param('id') id: number) {
-    await this.anniversaryService.remove(Number(id));
+  async remove(
+    @Param('id') id: number,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('roles') userRoles: string[],
+  ) {
+    await this.anniversaryService.remove(Number(id), userId, userRoles);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Anniversary } from './anniversary.entity';
@@ -55,10 +55,17 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-
-
-async remove(id: number): Promise<Anniversary> {
+  async remove(id: number, currentUserId: string, currentUserRoles: string[]): Promise<Anniversary> {
     const entity = await this.findOne(id);
-     return await this.anniversaryRepo.remove(entity);
+    
+    // 检查权限：只有管理员或纪念日创建者才能删除
+    const isAdmin = currentUserRoles.includes('admin');
+    const isOwner = entity.user_id === currentUserId;
+    
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException('权限不足，只有管理员或纪念日创建者才能删除');
+    }
+    
+    return await this.anniversaryRepo.remove(entity);
   }
 }
