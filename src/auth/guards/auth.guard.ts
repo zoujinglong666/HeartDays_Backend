@@ -63,8 +63,6 @@ export class AuthGuard implements CanActivate {
 
       // 存储到 AsyncLocalStorage
       request['user'] = payload;
-      console.log(`User authenticated: ${JSON.stringify(payload)}`);
-
       const userId = request.user?.sub || request.user?.id || '';
       if (userId) {
         await this.redisService.set(`online:user:${userId}`, '1', 60 * 10); // 10分钟过期

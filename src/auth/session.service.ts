@@ -17,6 +17,7 @@ export class SessionService {
   /**
    * 生成更安全的刷新令牌
    */
+  //这个函数生成的key过长 导致redis 存储失败 数据查找不出来
   // generateRefreshToken(): string {
   //   return randomBytes(64).toString('hex'); // 128位16进制字符串
   // }

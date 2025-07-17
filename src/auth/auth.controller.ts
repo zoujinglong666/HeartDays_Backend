@@ -84,13 +84,11 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: '未授权' })
   async logout(@Req() req: Request) {
-    console.log('有用户正在悄悄登出', req.user);
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {
       throw new UnauthorizedException('用户信息无效');
     }
-    
     await this.authService.logout(userId);
     return { message: '登出成功' };
   }

@@ -6,7 +6,6 @@ import { User } from '../user/user.entity';
 import { LoginDto } from '../user/dto/login.dto';
 import * as bcrypt from 'bcryptjs';
 import { RegisterUserDto } from '../user/dto/register-user.dto';
-import { randomUUID } from 'node:crypto';
 import { SessionService } from './session.service';
 import { RefreshTokenDto, TokenResponseDto } from './dto/refresh-token.dto';
 import { Request } from 'express';
@@ -23,9 +22,7 @@ export class AuthService {
 
   async validateUser(account: string, password: string): Promise<any> {
     const user = await this.userRepository.findOne({
-      where: [
-        { userAccount: account, isActive: true },
-      ],
+      where: [{ userAccount: account, isActive: true }],
     });
 
     if (user && (await bcrypt.compare(password, user.password))) {
@@ -35,7 +32,11 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto, deviceInfo?: any, req?: Request): Promise<TokenResponseDto> {
+  async login(
+    loginDto: LoginDto,
+    deviceInfo?: any,
+    req?: Request,
+  ): Promise<TokenResponseDto> {
     const { userAccount, password } = loginDto;
 
     // 确保提供了账号或邮箱
@@ -89,7 +90,6 @@ export class AuthService {
       !registerUserDto.userAccount ||
       !registerUserDto.password ||
       !registerUserDto.confirmPassword
-
     ) {
       throw new UnauthorizedException('请填写完整的注册信息');
     }
@@ -101,7 +101,6 @@ export class AuthService {
     if (!emailRegex.test(registerUserDto.email)) {
       throw new UnauthorizedException('邮箱格式不正确');
     }
-   
 
     // 判断密码 和确认密码是否一致
     if (registerUserDto.password !== registerUserDto.confirmPassword) {
@@ -132,7 +131,6 @@ export class AuthService {
       roles: ['user'],
       password: hashedPassword,
     });
-
     return await this.userRepository.save(user);
     // 返回登录信息
   }
@@ -147,7 +145,10 @@ export class AuthService {
   /**
    * 验证会话是否有效
    */
-  async validateSession(userId: string, sessionToken: string): Promise<boolean> {
+  async validateSession(
+    userId: string,
+    sessionToken: string,
+  ): Promise<boolean> {
     const session = await this.sessionService.getUserSession(userId);
     return session && session.sessionToken === sessionToken;
   }
@@ -162,18 +163,29 @@ export class AuthService {
   /**
    * 刷新访问令牌
    */
-  async refreshToken(refreshTokenDto: RefreshTokenDto, req?: Request): Promise<TokenResponseDto> {
+  async refreshToken(
+    refreshTokenDto: RefreshTokenDto,
+    req?: Request,
+  ): Promise<TokenResponseDto> {
     const { refresh_token } = refreshTokenDto;
+    if (!refresh_token) {
+      throw new UnauthorizedException('刷新令牌不存在');
+    }
     const ua = req?.headers['user-agent'] || '';
     // deviceId 从前端 deviceInfo 里获取，假设前端每次都带上
     const deviceId = req?.body?.deviceId || undefined;
     // 刷新频率限制
-    const refreshInfo = await this.sessionService.validateRefreshToken(refresh_token, ua, deviceId);
-    console.log('刷新令牌验证结果', refreshInfo);
+    const refreshInfo = await this.sessionService.validateRefreshToken(
+      refresh_token,
+      ua,
+      deviceId,
+    );
     if (!refreshInfo) {
       throw new UnauthorizedException('刷新令牌无效、已过期或设备环境不一致');
     }
-    const canRefresh = await this.sessionService.checkRefreshLimit(refreshInfo.userId);
+    const canRefresh = await this.sessionService.checkRefreshLimit(
+      refreshInfo.userId,
+    );
     console.log('刷新频率限制', canRefresh);
     if (!canRefresh) {
       throw new UnauthorizedException('刷新操作过于频繁，请稍后再试');
@@ -193,7 +205,9 @@ export class AuthService {
     const newRefreshToken = this.sessionService.generateRefreshToken();
 
     // 获取当前会话的设备信息
-    const currentSession = await this.sessionService.getUserSession(refreshInfo.userId);
+    const currentSession = await this.sessionService.getUserSession(
+      refreshInfo.userId,
+    );
     const deviceInfo = currentSession?.deviceInfo;
 
     // 存储新会话
@@ -231,6 +245,9 @@ export class AuthService {
    * 获取用户信息（用于登录响应）
    */
   async getUserInfo(userId: string) {
+    if (!userId) {
+      throw new UnauthorizedException('用户Id不存在');
+    }
     const user = await this.userRepository.findOne({
       where: { id: userId, isActive: true },
     });
