@@ -8,6 +8,8 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Query,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -19,7 +21,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post("create")
+  @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createUserDto: CreateUserDto) {
     return await this.userService.create(createUserDto);
@@ -38,7 +40,7 @@ export class UserController {
   }
 
   @Post('update')
-  async update( @Body() updateUserDto: UpdateUserDto) {
+  async update(@Body() updateUserDto: UpdateUserDto) {
     return await this.userService.update(updateUserDto);
   }
 
@@ -48,5 +50,21 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string) {
     await this.userService.remove(id);
+  }
+
+  // 获取未添加为好友的用户列表
+  @Get('unadded')
+  async getUnaddedUsers(
+    @Req() req,
+    @Query('keyword') keyword?: string,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 20,
+  ) {
+    return this.userService.getUnaddedUsers(
+      req.user.id,
+      keyword,
+      Number(page),
+      Number(pageSize),
+    );
   }
 }

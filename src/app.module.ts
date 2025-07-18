@@ -14,6 +14,8 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { AuthGuard } from './auth/guards/auth.guard';
 import configuration from './config/configuration';
 import { AnniversaryCacheTask } from './task/anniversaries-cache.task';
+import { ChatModule } from './chat/chat.module';
+import { FriendshipModule } from './friendship/friendship.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -49,6 +51,8 @@ import { AnniversaryCacheTask } from './task/anniversaries-cache.task';
     AuthModule,
     PlanModule,
     AnniversaryModule,
+    FriendshipModule,
+    ChatModule,
   ],
   providers: [
     {

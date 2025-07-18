@@ -19,12 +19,15 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { PasswordUtils } from '../common/utils/password.utils';
+import { Friendship } from '../friendship/friendship.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Friendship)
+    private readonly friendshipRepo: Repository<Friendship>,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -151,6 +154,30 @@ export class UserService {
     user.isActive = false;
     await this.userRepo.save(user);
   }
+  async getUnaddedUsers(userId: number, keyword?: string, page = 1, pageSize = 20) {
+    // 1. 查找所有已是好友的用户ID
+    const friendships = await this.friendshipRepo.find({
+      where: [
+        { user_id: userId, status: 'accepted' },
+        { friend_id: userId, status: 'accepted' }
+      ]
+    });
+    const friendIds = friendships.map(f =>
+      f.user_id === userId ? f.friend_id : f.user_id
+    );
 
+    // 2. 查找未添加的用户
+    const qb = this.userRepo.createQueryBuilder('user')
+      .where('user.id != :userId', { userId })
+      .andWhere('user.id NOT IN (:...friendIds)', { friendIds: friendIds.length ? friendIds : [0] });
+
+    if (keyword) {
+      qb.andWhere('user.nickname ILIKE :keyword', { keyword: `%${keyword}%` });
+    }
+
+    qb.skip((page - 1) * pageSize).take(pageSize);
+
+    return qb.getMany();
+  }
 
 }

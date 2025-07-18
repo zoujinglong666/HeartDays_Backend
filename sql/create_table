@@ -88,3 +88,63 @@ CREATE INDEX IF NOT EXISTS "IDX_4f3bb4a9f71584ab26713803fe"
     ON public.users USING btree
     ("userAccount" COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
+
+
+
+CREATE TABLE chat_sessions (
+                               id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                               type varchar(20) NOT NULL,
+                               name varchar(255),
+                               created_at timestamp DEFAULT now(),
+                               updated_at timestamp DEFAULT now()
+);
+
+CREATE TABLE chat_session_members (
+                                      id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                                      session_id uuid NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                                      user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                      joined_at timestamp DEFAULT now()
+);
+
+CREATE TABLE chat_messages (
+                               id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                               session_id uuid NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                               sender_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                               content text NOT NULL,
+                               type varchar(20) DEFAULT 'text',
+                               created_at timestamp DEFAULT now(),
+                               status varchar(20) DEFAULT 'sent'
+);
+
+CREATE TABLE chat_message_reads (
+                                    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                                    message_id uuid NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+                                    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                    read_at timestamp DEFAULT now()
+);
+
+
+
+CREATE TABLE chat_session_settings (
+                                       id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+                                       user_id uuid NOT NULL,
+                                       session_id uuid NOT NULL,
+                                       is_pinned boolean DEFAULT false,
+                                       is_muted boolean DEFAULT false,
+                                       updated_at timestamp DEFAULT now(),
+                                       UNIQUE (user_id, session_id)
+);
+
+CREATE TABLE friendships (
+                             id BIGSERIAL PRIMARY KEY,
+                             user_id BIGINT NOT NULL,
+                             friend_id BIGINT NOT NULL,
+                             status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending/accepted/rejected/blocked
+                             created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                             updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                             CONSTRAINT unique_friendship UNIQUE (user_id, friend_id)
+);
+
+-- 可选：为 user_id, friend_id 建索引，加速查询
+CREATE INDEX idx_friendships_user_id ON friendships(user_id);
+CREATE INDEX idx_friendships_friend_id ON friendships(friend_id);
