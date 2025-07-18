@@ -120,13 +120,13 @@ export class ChatService {
    */
   async getUserSessions(userId: string, page = 1, pageSize = 20) {
     // 1. 找到用户参与的所有会话
+    console.log('getUserSessions');
     const memberSessions = await this.memberRepo.find({
       where: { userId },
       relations: ['session'],
     });
     const sessionIds = memberSessions.map((m) => m.sessionId);
-
-    if (sessionIds.length === 0) return { total: 0, list: [] };
+    if (sessionIds.length === 0) return { total: 0, records: [], size: 0, current: 1, pages: 0, hasNext: false, hasPrev: false };
 
     // 2. 查询所有会话，按置顶排序、再按最新消息时间排序
     // 先查置顶信息
@@ -229,38 +229,46 @@ export class ChatService {
     }
 
     // 6. 组装结果
-    return {
+    const records = sessions.map((session) => {
+      const lastMsg = lastMessages[session.id];
+      const unread = unreadCounts[session.id] || 0;
+      let name = session.name;
+      let avatar: string | undefined = undefined;
+      if (session.type === 'single') {
+        const other = singleSessionUserMap[session.id] as any;
+        name = other?.nickname || other?.username || '对方';
+        avatar = other?.avatar || undefined;
+      }
+      return {
+        sessionId: session.id,
+        type: session.type,
+        name,
+        avatar,
+        lastMessage: lastMsg
+          ? {
+              content: lastMsg.content,
+              type: lastMsg.type,
+              createdAt: lastMsg.createdat || lastMsg.createdAt,
+              senderId: lastMsg.senderid || lastMsg.senderId,
+              status: lastMsg.status,
+            }
+          : null,
+        unreadCount: unread,
+        isPinned: !!pinMap[session.id],
+        isMuted: !!muteMap[session.id],
+      };
+    });
+    const obj = {
       total,
-      list: sessions.map((session) => {
-        const lastMsg = lastMessages[session.id];
-        const unread = unreadCounts[session.id] || 0;
-        let name = session.name;
-        let avatar: string | undefined = undefined;
-        if (session.type === 'single') {
-          const other = singleSessionUserMap[session.id] as any;
-          name = other?.nickname || other?.username || '对方';
-          avatar = other?.avatar || undefined;
-        }
-        return {
-          sessionId: session.id,
-          type: session.type,
-          name,
-          avatar,
-          lastMessage: lastMsg
-            ? {
-                content: lastMsg.content,
-                type: lastMsg.type,
-                createdAt: lastMsg.createdat || lastMsg.createdAt,
-                senderId: lastMsg.senderid || lastMsg.senderId,
-                status: lastMsg.status,
-              }
-            : null,
-          unreadCount: unread,
-          isPinned: !!pinMap[session.id],
-          isMuted: !!muteMap[session.id],
-        };
-      }),
+      size: pageSize,
+      current: page,
+      pages: Math.ceil(total / pageSize),
+      hasNext: page * pageSize < total,
+      hasPrev: page > 1,
+      records,
     };
+    console.log(obj);
+    return obj;
   }
 
   /**
