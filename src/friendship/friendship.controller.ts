@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { FriendshipService } from './friendship.service';
@@ -18,8 +17,8 @@ export class FriendshipController {
   constructor(private readonly friendshipService: FriendshipService) {}
 
   @Post('request')
-  async requestFriend(@Request() req, @Body() dto: RequestFriendDto) {
-    return this.friendshipService.requestFriend(req.user.id, dto.friendId);
+  async requestFriend(@Body() dto: RequestFriendDto) {
+    return this.friendshipService.requestFriend( dto.friendId);
   }
 
   @Post('respond')
@@ -31,7 +30,13 @@ export class FriendshipController {
   }
 
   @Get('list')
-  async getFriendList(@Request() req) {
-    return this.friendshipService.getFriendList(req.user.id);
+  async getFriendList() {
+    return this.friendshipService.getFriendList();
+  }
+
+  
+  @Get('requests/received')
+  async getReceivedFriendRequests() {
+    return this.friendshipService.getReceivedFriendRequests();
   }
 }

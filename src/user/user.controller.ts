@@ -34,6 +34,20 @@ export class UserController {
     return await this.userService.findAll();
   }
 
+  // 获取未添加为好友的用户列表
+  @Get('unadded')
+  async getUnaddedUsers(
+    @Query('keyword') keyword?: string,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 20,
+  ) {
+    return this.userService.getUnaddedUsers(
+      keyword,
+      Number(page),
+      Number(pageSize),
+    );
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return await this.userService.findOne(id);
@@ -52,19 +66,5 @@ export class UserController {
     await this.userService.remove(id);
   }
 
-  // 获取未添加为好友的用户列表
-  @Get('unadded')
-  async getUnaddedUsers(
-    @Req() req,
-    @Query('keyword') keyword?: string,
-    @Query('page') page = 1,
-    @Query('pageSize') pageSize = 20,
-  ) {
-    return this.userService.getUnaddedUsers(
-      req.user.id,
-      keyword,
-      Number(page),
-      Number(pageSize),
-    );
-  }
+
 }

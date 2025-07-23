@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { WsJwtMiddleware } from '../common/middleware/ws-jwt.middleware';
+import { LoginDto } from '../user/dto/login.dto';
 
 @WebSocketGateway({ cors: true })
 export class ChatGateway implements OnGatewayInit {
@@ -59,16 +60,28 @@ export class ChatGateway implements OnGatewayInit {
   async handleSendMessage(@MessageBody() data, @ConnectedSocket() client: Socket) {
     const user = client.data.user;
     if (!user) return { error: '未授权' };
+
+
+    const sessionMembers = await this.chatService.getSessionMembers(data.sessionId);
+    console.log('sessionMembers', sessionMembers);
+
+    const receiver = sessionMembers.find(m => m.userId !== user.sub);
     const message = await this.chatService.sendMessage(
-      { ...data, sessionId: data.sessionId, type: data.type ?? 'text' },
-      user.userId,
+      { ...data, sessionId: data.sessionId, receiverId: receiver?.userId, type: data.type ?? 'text' },
+      user.sub,
     );
     this.server.to(data.sessionId).emit('newMessage', message);
     return message;
   }
 
+  @SubscribeMessage('joinUserRoom')
+  handleJoinUserRoom(@ConnectedSocket() socket: Socket, @MessageBody() data: { userId: string }) {
+    socket.join(`user_${data.userId}`);
+    console.log(`Socket ${socket.id} joined room user_${data.userId}`);
+    // 可选：通知客户端已加入
+    socket.emit('joinedUserRoom', { room: `user_${data.userId}` });
+  }
 
 
-  // ... 其他事件 ...
 
 }

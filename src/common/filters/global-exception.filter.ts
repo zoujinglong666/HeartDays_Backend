@@ -23,25 +23,25 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const res =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : '内部服务器错误';
+    let res: any;
+
+    if (exception instanceof BusinessException) {
+      // 自定义业务异常，结构化信息
+      res = {
+        code: exception.code,
+        message: exception.message,
+        detail: exception.detail,
+      };
+    } else if (exception instanceof HttpException) {
+      res = exception.getResponse();
+    } else {
+      res = '内部服务器错误';
+    }
 
     this.logger.error(
       `HTTP ${status} - ${request.method} ${request.url} - ${JSON.stringify(res)}`,
       exception instanceof Error ? exception.stack : '',
     );
-
-    // 处理自定义业务异常
-    if (exception instanceof BusinessException) {
-      response.status(status).json({
-        code: exception.code,
-        timestamp: new Date().toISOString(),
-        message: exception.message,
-      });
-      return; // 关键：防止继续往下执行
-    }
 
     // 处理 message 字段，确保为字符串
     let message: string;

@@ -1,7 +1,8 @@
 // src/friendship/dto/request-friend.dto.ts
-import { IsNumber } from 'class-validator';
+import { IsNumber, IsOptional, IsUUID } from 'class-validator';
 
 export class RequestFriendDto {
-  @IsNumber()
-  friendId: number;
+  @IsOptional()
+  @IsUUID()
+  friendId: string;
 }

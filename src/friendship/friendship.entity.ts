@@ -4,16 +4,17 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('friendships')
 @Unique(['user_id', 'friend_id'])
 export class Friendship {
-  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  @Column({ type: 'uuid' })
+  @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   @Index()
-  user_id: number;
+  user_id: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'uuid' })
   @Index()
-  friend_id: number;
+  friend_id: string;
 
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   status: 'pending' | 'accepted' | 'rejected' | 'blocked';

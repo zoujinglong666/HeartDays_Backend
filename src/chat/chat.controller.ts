@@ -12,10 +12,14 @@ export class ChatController {
 
   // 创建会话
   @Post('session')
-  async createSession(@Body() dto: CreateChatSessionDto, @Request() req) {
-    return this.chatService.createSession(dto, req.user.userId);
+  async createSession(@Body() dto: CreateChatSessionDto) {
+    return this.chatService.createSession(dto);
   }
-
+  // 获取指定会话信息
+  @Get('session/:id')
+  async getSessionById(@Param('id') sessionId: string) {
+    return this.chatService.getSessionById(sessionId);
+  }
   // 发送消息
   @Post('message')
   async sendMessage(@Body() dto: SendMessageDto, @Request() req) {
@@ -23,14 +27,15 @@ export class ChatController {
   }
 
   // 获取会话消息（分页）
-  @Get('session/:id/messages')
+  @Get('session/:id/messages') // 更符合 RESTful 风格
   async getSessionMessages(
     @Param('id') sessionId: string,
-    @Query('limit') limit: number,
-    @Query('offset') offset: number,
+    @Query('limit') limit: number = 20,
+    @Query('offset') offset: number = 0,
   ) {
     return this.chatService.getSessionMessages(sessionId, limit, offset);
   }
+
 
   // 获取聊天会话列表（分页、置顶、免打扰）
   @Get('session-list')
@@ -61,8 +66,8 @@ export class ChatController {
 
   // 标记消息已读
   @Post('message/:id/read')
-  async markMessageRead(@Param('id') messageId: string, @Request() req) {
-    return this.chatService.markMessageRead(messageId, req.user.userId);
+  async markMessageRead(@Param('id') messageId: string, ) {
+    return this.chatService.markMessageRead(messageId);
   }
 
   // 置顶/免打扰设置

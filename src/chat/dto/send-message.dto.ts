@@ -10,4 +10,10 @@ export class SendMessageDto {
   @IsOptional()
   @IsString()
   type?: string; // text/image/file
+
+
+
+  @IsUUID()
+  receiverId: string;
+
 } 

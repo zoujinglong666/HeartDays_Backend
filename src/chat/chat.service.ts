@@ -10,6 +10,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { User } from '../user/user.entity';
 import { ChatSessionSetting } from './entities/chat-session-setting.entity';
+import { getLoginUser } from '../common/context/request-context';
 
 @Injectable()
 export class ChatService {
@@ -26,21 +27,47 @@ export class ChatService {
     private sessionSettingRepo: Repository<ChatSessionSetting>,
   ) {}
 
-  async createSession(dto: CreateChatSessionDto, creatorId: string) {
+  getSessionMembers(sessionId: string) {
+    return this.memberRepo.find({ where: { sessionId } });
+  }
+
+  async createSession(dto: CreateChatSessionDto) {
+    const creatorId = getLoginUser().id;
+    const userIds = Array.from(new Set([...dto.userIds, creatorId])).sort(); // 排序用于后续比较
+
+    // 查找已有包含所有这些用户的会话
+    const existingSessions = await this.sessionRepo
+      .createQueryBuilder('session')
+      .innerJoinAndSelect('session.members', 'member')
+      .where('member.userId IN (:...userIds)', { userIds })
+      .getMany();
+
+    for (const session of existingSessions) {
+      const sessionMemberIds = session.members.map(m => m.userId).sort();
+      if (sessionMemberIds.length === userIds.length &&
+        sessionMemberIds.every((id, idx) => id === userIds[idx])) {
+        return session; // 已存在完全相同成员的会话
+      }
+    }
+
+    // 如果没有匹配的会话，则新建
     const session = this.sessionRepo.create({
       type: dto.type,
       name: dto.name,
     });
     await this.sessionRepo.save(session);
 
-    const userIds = Array.from(new Set([...dto.userIds, creatorId]));
-    const members = userIds.map((userId) =>
-      this.memberRepo.create({ sessionId: session.id, userId }),
+    const members = userIds.map(userId =>
+      this.memberRepo.create({ sessionId: session.id, userId })
     );
     await this.memberRepo.save(members);
 
+    // 手动补上成员，方便调用者使用
+    (session as any).members = members;
+
     return session;
   }
+
 
   async sendMessage(dto: SendMessageDto, senderId: string) {
     const message = this.messageRepo.create({
@@ -48,21 +75,65 @@ export class ChatService {
       senderId,
       content: dto.content,
       type: dto.type || 'text',
+      receiverId: dto.receiverId, // 新增
     });
     await this.messageRepo.save(message);
     return message;
   }
 
+  // async getSessionMessages(sessionId: string, limit = 20, offset = 0) {
+  //   // 查询总数和数据
+  //   const [records, total] = await this.messageRepo.findAndCount({
+  //     where: { sessionId },
+  //     order: { createdAt: 'ASC' },
+  //     take: limit,
+  //     skip: offset,
+  //   });
+  //   const current = Math.floor(offset / limit) + 1;
+  //   const pages = Math.ceil(total / limit);
+  //   return {
+  //     total,
+  //     size: limit,
+  //     current,
+  //     pages,
+  //     hasNext: current < pages,
+  //     hasPrev: current > 1,
+  //     records,
+  //   };
+  // }
+
   async getSessionMessages(sessionId: string, limit = 20, offset = 0) {
-    return this.messageRepo.find({
+    const total = await this.messageRepo.count({ where: { sessionId } });
+
+    // 计算倒序查询的偏移量
+    // 例如：total=100，offset=0 => 查询倒数最新20条
+    const realOffset = total - offset - limit;
+    const safeOffset = realOffset < 0 ? 0 : realOffset;
+
+    const records = await this.messageRepo.find({
       where: { sessionId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'ASC' },  // 正序
       take: limit,
-      skip: offset,
+      skip: safeOffset,
     });
+
+    const current = Math.floor(offset / limit) + 1;
+    const pages = Math.ceil(total / limit);
+
+    return {
+      total,
+      size: limit,
+      current,
+      pages,
+      hasNext: offset + limit < total,
+      hasPrev: offset > 0,
+      records,
+    };
   }
 
-  async markMessageRead(messageId: string, userId: string) {
+
+  async markMessageRead(messageId: string) {
+    const userId = getLoginUser().id;
     const read = this.readRepo.create({ messageId, userId });
     await this.readRepo.save(read);
     return read;
@@ -120,13 +191,21 @@ export class ChatService {
    */
   async getUserSessions(userId: string, page = 1, pageSize = 20) {
     // 1. 找到用户参与的所有会话
-    console.log('getUserSessions');
     const memberSessions = await this.memberRepo.find({
       where: { userId },
       relations: ['session'],
     });
     const sessionIds = memberSessions.map((m) => m.sessionId);
-    if (sessionIds.length === 0) return { total: 0, records: [], size: 0, current: 1, pages: 0, hasNext: false, hasPrev: false };
+    if (sessionIds.length === 0)
+      return {
+        total: 0,
+        records: [],
+        size: 0,
+        current: 1,
+        pages: 0,
+        hasNext: false,
+        hasPrev: false,
+      };
 
     // 2. 查询所有会话，按置顶排序、再按最新消息时间排序
     // 先查置顶信息
@@ -236,7 +315,7 @@ export class ChatService {
       let avatar: string | undefined = undefined;
       if (session.type === 'single') {
         const other = singleSessionUserMap[session.id] as any;
-        name = other?.nickname || other?.username || '对方';
+        name = other?.nickname || other?.name ||other?.userAccount || '对方';
         avatar = other?.avatar || undefined;
       }
       return {
@@ -270,7 +349,6 @@ export class ChatService {
     console.log(obj);
     return obj;
   }
-
   /**
    * 设置会话的置顶/免打扰
    */
@@ -297,5 +375,12 @@ export class ChatService {
    */
   async getSessionSetting(userId: string, sessionId: string) {
     return this.sessionSettingRepo.findOneBy({ userId, sessionId });
+  }
+
+  /**
+   * 根据 sessionId 返回会话信息
+   */
+  async getSessionById(sessionId: string) {
+    return this.sessionRepo.findOneBy({ id: sessionId });
   }
 }

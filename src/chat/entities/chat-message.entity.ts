@@ -14,6 +14,9 @@ export class ChatMessage {
   @Column({ type: 'uuid' })
   senderId: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  receiverId: string;
+  
   @Column({ type: 'text' })
   content: string;
 

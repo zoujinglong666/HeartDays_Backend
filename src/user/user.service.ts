@@ -20,6 +20,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { PasswordUtils } from '../common/utils/password.utils';
 import { Friendship } from '../friendship/friendship.entity';
+import { getLoginUser } from '../common/context/request-context';
 
 @Injectable()
 export class UserService {
@@ -154,30 +155,47 @@ export class UserService {
     user.isActive = false;
     await this.userRepo.save(user);
   }
-  async getUnaddedUsers(userId: number, keyword?: string, page = 1, pageSize = 20) {
-    // 1. 查找所有已是好友的用户ID
+  async getUnaddedUsers(keyword?: string, page = 1, pageSize = 20) {
+    const loginUser = getLoginUser();
+    // 查找所有已是好友的用户ID
     const friendships = await this.friendshipRepo.find({
       where: [
-        { user_id: userId, status: 'accepted' },
-        { friend_id: userId, status: 'accepted' }
+        { user_id: loginUser.id, status: 'accepted' },
+        { friend_id: loginUser.id, status: 'accepted' }
       ]
     });
     const friendIds = friendships.map(f =>
-      f.user_id === userId ? f.friend_id : f.user_id
+      f.user_id === loginUser.id ? f.friend_id : f.user_id
     );
 
-    // 2. 查找未添加的用户
+    // 确保 friendIds 至少有一个元素（用一个永远不会有的 UUID 兜底）
+    const safeFriendIds = friendIds.length > 0 ? friendIds : ['00000000-0000-0000-0000-000000000000'];
+
     const qb = this.userRepo.createQueryBuilder('user')
-      .where('user.id != :userId', { userId })
-      .andWhere('user.id NOT IN (:...friendIds)', { friendIds: friendIds.length ? friendIds : [0] });
+      .where('user.id != :userId', { userId: loginUser.id })
+      .andWhere('user.id NOT IN (:...friendIds)', { friendIds: safeFriendIds });
 
     if (keyword) {
-      qb.andWhere('user.nickname ILIKE :keyword', { keyword: `%${keyword}%` });
+      qb.andWhere('user.name ILIKE :name', { name: `%${keyword}%` }); // 注意字段名
     }
 
     qb.skip((page - 1) * pageSize).take(pageSize);
 
-    return qb.getMany();
+
+    // 只查需要的字段
+    qb.select(['user.id', 'user.name', 'user.email', 'user.avatar', 'user.userAccount']);
+
+    const users = await qb.getMany();
+
+    // 转换为 VO（其实 select 已经只查了需要的字段，这里只是类型转换）
+    return users.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      avatar: u.avatar,
+      userAccount: u.userAccount,
+    }));
+
   }
 
 }
