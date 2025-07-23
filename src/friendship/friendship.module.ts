@@ -7,10 +7,11 @@ import { FriendshipController } from './friendship.controller';
 import { NotificationModule } from '../notification/notification.module';
 import { UserModule } from '../user/user.module';
 import { User } from '../user/user.entity';
+import { ChatSession } from '../chat/entities/chat-session.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Friendship, User]), // 这里加上 User
+    TypeOrmModule.forFeature([Friendship, User,ChatSession]), // 这里加上 User
     forwardRef(() => UserModule),
     NotificationModule,
   ],

@@ -11,6 +11,7 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { User } from '../user/user.entity';
 import { ChatSessionSetting } from './entities/chat-session-setting.entity';
 import { getLoginUser } from '../common/context/request-context';
+import { BusinessException, CommonResultCode } from '../common/exceptions/business.exception';
 
 @Injectable()
 export class ChatService {
@@ -102,7 +103,7 @@ export class ChatService {
   //   };
   // }
 
-  async getSessionMessages(sessionId: string, limit = 20, offset = 0) {
+  async getSessionMessages(sessionId: string, limit = 20, offset = 0, userId?: string) {
     const total = await this.messageRepo.count({ where: { sessionId } });
 
     // 计算倒序查询的偏移量
@@ -117,6 +118,22 @@ export class ChatService {
       skip: safeOffset,
     });
 
+    let readMap: Record<string, boolean> = {};
+    if (userId) {
+      const messageIds = records.map(r => r.id);
+      if (messageIds.length > 0) {
+        const reads = await this.readRepo.find({
+          where: { messageId: In(messageIds), userId },
+        });
+        readMap = Object.fromEntries(reads.map(r => [r.messageId, true]));
+      }
+    }
+
+    const recordsWithRead = records.map(msg => ({
+      ...msg,
+      isRead: readMap[msg.id],
+    }));
+
     const current = Math.floor(offset / limit) + 1;
     const pages = Math.ceil(total / limit);
 
@@ -127,14 +144,18 @@ export class ChatService {
       pages,
       hasNext: offset + limit < total,
       hasPrev: offset > 0,
-      records,
+      records: recordsWithRead,
     };
   }
 
 
   async markMessageRead(messageId: string) {
     const userId = getLoginUser().id;
-    const read = this.readRepo.create({ messageId, userId });
+    let read = await this.readRepo.findOne({ where: { messageId, userId } });
+    if (read) {
+      return read;
+    }
+    read = this.readRepo.create({ messageId, userId });
     await this.readRepo.save(read);
     return read;
   }
@@ -216,8 +237,8 @@ export class ChatService {
       where: { userId, sessionId: In(sessionIds) },
     });
     for (const s of settings) {
-      pinMap[s.sessionId] = !!s.isPinned;
-      muteMap[s.sessionId] = !!s.isMuted;
+      pinMap[s.sessionId] = s.isPinned;
+      muteMap[s.sessionId] = s.isMuted;
     }
 
     // 查最新消息时间
@@ -337,7 +358,7 @@ export class ChatService {
         isMuted: !!muteMap[session.id],
       };
     });
-    const obj = {
+    return {
       total,
       size: pageSize,
       current: page,
@@ -346,8 +367,6 @@ export class ChatService {
       hasPrev: page > 1,
       records,
     };
-    console.log(obj);
-    return obj;
   }
   /**
    * 设置会话的置顶/免打扰

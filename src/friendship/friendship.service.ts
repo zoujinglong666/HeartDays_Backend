@@ -10,6 +10,8 @@ import { NotificationGateway } from '../notification/notification.gateway';
 import { getLoginUser } from '../common/context/request-context';
 import { UserVO } from '../user/vo/user.vo';
 import { User } from '../user/user.entity';
+import { ChatMessage } from '../chat/entities/chat-message.entity';
+import { ChatSession } from '../chat/entities/chat-session.entity';
 
 @Injectable()
 export class FriendshipService {
@@ -19,6 +21,8 @@ export class FriendshipService {
     private readonly notificationGateway: NotificationGateway,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(ChatSession)
+    private readonly chatSessionRepo: Repository<ChatSession>,
   ) {}
 
   async requestFriend(friendId: string) {
@@ -93,8 +97,44 @@ export class FriendshipService {
       avatar: u.avatar,
       email: u.email,
       userAccount: u.userAccount,
-      // ... 其他你需要的字段
     }));
+  }
+
+  async getFriendListTest() {
+    const userId = getLoginUser().id;
+    const friends = await this.friendshipRepo.find({
+      where: [
+        { user_id: userId, status: 'accepted' },
+        { friend_id: userId, status: 'accepted' },
+      ],
+    });
+    // 获取好友ID列表
+    const friendIds = friends.map((f) => (f.user_id === userId ? f.friend_id : f.user_id));
+    if (friendIds.length === 0) return [];
+    // 批量查用户
+    const users = await this.userRepo.findByIds(friendIds);
+
+    // 构建用户ID到用户对象的映射
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+
+    // 合并好友信息和会话信息
+    return friends.map(f => {
+      const friendId = f.user_id === userId ? f.friend_id : f.user_id;
+      const user = userMap.get(friendId);
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          email: user.email,
+          userAccount: user.userAccount,
+          // 假设会话信息在 Friendship 实体的 conversationInfo 字段
+          conversationInfo: null
+        };
+      }
+      return null;
+    }).filter(Boolean);
   }
 
   // 获取我收到的好友申请列表

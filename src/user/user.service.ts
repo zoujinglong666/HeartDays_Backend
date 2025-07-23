@@ -21,6 +21,10 @@ import { JwtService } from '@nestjs/jwt';
 import { PasswordUtils } from '../common/utils/password.utils';
 import { Friendship } from '../friendship/friendship.entity';
 import { getLoginUser } from '../common/context/request-context';
+import {
+  BusinessException,
+  CommonResultCode,
+} from '../common/exceptions/business.exception';
 
 @Injectable()
 export class UserService {
@@ -50,7 +54,9 @@ export class UserService {
       throw new EmailAlreadyExistsException(<string>createUserDto?.email);
     }
 
-    const hashedPassword = PasswordUtils.encryptPassword(createUserDto.password);
+    const hashedPassword = PasswordUtils.encryptPassword(
+      createUserDto.password,
+    );
 
     const user = this.userRepo.create({
       ...createUserDto,
@@ -130,18 +136,21 @@ export class UserService {
         updateUserDto.userAccount,
       );
       if (existingUser) {
-        throw new UserAccountAlreadyExistsException(updateUserDto.userAccount);
+        throw new BusinessException(
+          CommonResultCode.PARAMS_ERROR,
+          '账号已被其他用户使用',
+        );
       }
     }
 
     // 检查邮箱是否被其他用户使用
-    if (
-      updateUserDto.email &&
-      updateUserDto.email !== user.email
-    ) {
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
       const existingUserByEmail = await this.findByEmail(updateUserDto.email);
       if (existingUserByEmail && existingUserByEmail.id !== id) {
-        throw new EmailAlreadyExistsException(updateUserDto.email);
+        throw new BusinessException(
+          CommonResultCode.PARAMS_ERROR,
+          '邮箱已被其他用户使用',
+        );
       }
     }
 
@@ -155,23 +164,28 @@ export class UserService {
     user.isActive = false;
     await this.userRepo.save(user);
   }
+
   async getUnaddedUsers(keyword?: string, page = 1, pageSize = 20) {
     const loginUser = getLoginUser();
     // 查找所有已是好友的用户ID
     const friendships = await this.friendshipRepo.find({
       where: [
         { user_id: loginUser.id, status: 'accepted' },
-        { friend_id: loginUser.id, status: 'accepted' }
-      ]
+        { friend_id: loginUser.id, status: 'accepted' },
+      ],
     });
-    const friendIds = friendships.map(f =>
-      f.user_id === loginUser.id ? f.friend_id : f.user_id
+    const friendIds = friendships.map((f) =>
+      f.user_id === loginUser.id ? f.friend_id : f.user_id,
     );
 
     // 确保 friendIds 至少有一个元素（用一个永远不会有的 UUID 兜底）
-    const safeFriendIds = friendIds.length > 0 ? friendIds : ['00000000-0000-0000-0000-000000000000'];
+    const safeFriendIds =
+      friendIds.length > 0
+        ? friendIds
+        : ['00000000-0000-0000-0000-000000000000'];
 
-    const qb = this.userRepo.createQueryBuilder('user')
+    const qb = this.userRepo
+      .createQueryBuilder('user')
       .where('user.id != :userId', { userId: loginUser.id })
       .andWhere('user.id NOT IN (:...friendIds)', { friendIds: safeFriendIds });
 
@@ -181,21 +195,24 @@ export class UserService {
 
     qb.skip((page - 1) * pageSize).take(pageSize);
 
-
     // 只查需要的字段
-    qb.select(['user.id', 'user.name', 'user.email', 'user.avatar', 'user.userAccount']);
+    qb.select([
+      'user.id',
+      'user.name',
+      'user.email',
+      'user.avatar',
+      'user.userAccount',
+    ]);
 
     const users = await qb.getMany();
 
     // 转换为 VO（其实 select 已经只查了需要的字段，这里只是类型转换）
-    return users.map(u => ({
+    return users.map((u) => ({
       id: u.id,
       name: u.name,
       email: u.email,
       avatar: u.avatar,
       userAccount: u.userAccount,
     }));
-
   }
-
 }

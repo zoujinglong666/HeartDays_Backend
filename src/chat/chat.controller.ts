@@ -32,8 +32,9 @@ export class ChatController {
     @Param('id') sessionId: string,
     @Query('limit') limit: number = 20,
     @Query('offset') offset: number = 0,
+    @Request() req,
   ) {
-    return this.chatService.getSessionMessages(sessionId, limit, offset);
+    return this.chatService.getSessionMessages(sessionId, limit, offset, req.user.userId);
   }
 
 
