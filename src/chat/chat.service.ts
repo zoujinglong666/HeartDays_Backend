@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { ChatSession } from './entities/chat-session.entity';
 import { ChatSessionMember } from './entities/chat-session-member.entity';
 import { ChatMessage } from './entities/chat-message.entity';
@@ -11,7 +11,11 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { User } from '../user/user.entity';
 import { ChatSessionSetting } from './entities/chat-session-setting.entity';
 import { getLoginUser } from '../common/context/request-context';
-import { BusinessException, CommonResultCode } from '../common/exceptions/business.exception';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  BusinessException,
+  ErrorCode,
+} from '../common/exceptions/business.exception';
 
 @Injectable()
 export class ChatService {
@@ -26,6 +30,7 @@ export class ChatService {
     private readRepo: Repository<ChatMessageRead>,
     @InjectRepository(ChatSessionSetting)
     private sessionSettingRepo: Repository<ChatSessionSetting>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   getSessionMembers(sessionId: string) {
@@ -44,9 +49,11 @@ export class ChatService {
       .getMany();
 
     for (const session of existingSessions) {
-      const sessionMemberIds = session.members.map(m => m.userId).sort();
-      if (sessionMemberIds.length === userIds.length &&
-        sessionMemberIds.every((id, idx) => id === userIds[idx])) {
+      const sessionMemberIds = session.members.map((m) => m.userId).sort();
+      if (
+        sessionMemberIds.length === userIds.length &&
+        sessionMemberIds.every((id, idx) => id === userIds[idx])
+      ) {
         return session; // 已存在完全相同成员的会话
       }
     }
@@ -58,8 +65,8 @@ export class ChatService {
     });
     await this.sessionRepo.save(session);
 
-    const members = userIds.map(userId =>
-      this.memberRepo.create({ sessionId: session.id, userId })
+    const members = userIds.map((userId) =>
+      this.memberRepo.create({ sessionId: session.id, userId }),
     );
     await this.memberRepo.save(members);
 
@@ -68,7 +75,6 @@ export class ChatService {
 
     return session;
   }
-
 
   async sendMessage(dto: SendMessageDto, senderId: string) {
     const message = this.messageRepo.create({
@@ -82,29 +88,18 @@ export class ChatService {
     return message;
   }
 
-  // async getSessionMessages(sessionId: string, limit = 20, offset = 0) {
-  //   // 查询总数和数据
-  //   const [records, total] = await this.messageRepo.findAndCount({
-  //     where: { sessionId },
-  //     order: { createdAt: 'ASC' },
-  //     take: limit,
-  //     skip: offset,
-  //   });
-  //   const current = Math.floor(offset / limit) + 1;
-  //   const pages = Math.ceil(total / limit);
-  //   return {
-  //     total,
-  //     size: limit,
-  //     current,
-  //     pages,
-  //     hasNext: current < pages,
-  //     hasPrev: current > 1,
-  //     records,
-  //   };
-  // }
-
-  async getSessionMessages(sessionId: string, limit = 20, offset = 0, userId?: string) {
-    const total = await this.messageRepo.count({ where: { sessionId } });
+  async getSessionMessages(
+    sessionId: string,
+    limit = 20,
+    offset = 0,
+    userId?: string,
+  ) {
+    const total = await this.messageRepo.count({
+      where: {
+        sessionId,
+        status: Not('withdraw'), // 排除已撤回的消息
+      },
+    });
 
     // 计算倒序查询的偏移量
     // 例如：total=100，offset=0 => 查询倒数最新20条
@@ -112,24 +107,27 @@ export class ChatService {
     const safeOffset = realOffset < 0 ? 0 : realOffset;
 
     const records = await this.messageRepo.find({
-      where: { sessionId },
-      order: { createdAt: 'ASC' },  // 正序
+      where: {
+        sessionId: sessionId,
+        status: Not('withdraw'), // 排除已撤回的消息
+      },
+      order: { createdAt: 'ASC' }, // 正序
       take: limit,
       skip: safeOffset,
     });
 
     let readMap: Record<string, boolean> = {};
     if (userId) {
-      const messageIds = records.map(r => r.id);
+      const messageIds = records.map((r) => r.id);
       if (messageIds.length > 0) {
         const reads = await this.readRepo.find({
           where: { messageId: In(messageIds), userId },
         });
-        readMap = Object.fromEntries(reads.map(r => [r.messageId, true]));
+        readMap = Object.fromEntries(reads.map((r) => [r.messageId, true]));
       }
     }
 
-    const recordsWithRead = records.map(msg => ({
+    const recordsWithRead = records.map((msg) => ({
       ...msg,
       isRead: readMap[msg.id],
     }));
@@ -147,7 +145,6 @@ export class ChatService {
       records: recordsWithRead,
     };
   }
-
 
   async markMessageRead(messageId: string) {
     const userId = getLoginUser().id;
@@ -198,12 +195,75 @@ export class ChatService {
     return { success: true };
   }
 
+  async getOfflineMessages(userId: string, lastMessageTime?: Date) {
+    // 获取用户参与的所有会话
+    const memberships = await this.memberRepo.find({
+      where: { userId },
+    });
+
+    const sessionIds = memberships.map((m) => m.sessionId);
+    if (sessionIds.length === 0) return [];
+
+    // 查询这些会话中用户未读的消息
+    const queryBuilder = this.messageRepo
+      .createQueryBuilder('message')
+      .where('message.sessionId IN (:...sessionIds)', { sessionIds })
+      .andWhere('message.senderId != :userId', { userId })
+      .orderBy('message.createdAt', 'ASC');
+
+    // 如果提供了最后消息时间，只获取该时间之后的消息
+    if (lastMessageTime) {
+      queryBuilder.andWhere('message.createdAt > :lastMessageTime', {
+        lastMessageTime,
+      });
+    }
+
+    const messages = await queryBuilder.getMany();
+
+    // 标记这些消息为已读
+    if (messages.length > 0) {
+      const reads = messages.map((message) =>
+        this.readRepo.create({ messageId: message.id, userId }),
+      );
+      await this.readRepo.save(reads);
+    }
+
+    return messages;
+  }
+
   async withdrawMessage(messageId: string, userId: string) {
+    // 先查消息是否存在
     const message = await this.messageRepo.findOneBy({ id: messageId });
-    if (!message) throw new Error('消息不存在');
-    if (message.senderId !== userId) throw new Error('只能撤回自己发送的消息');
+    if (!message)
+      throw new BusinessException(ErrorCode.NULL_ERROR, '消息不存在');
+    if (message.senderId !== userId)
+      throw new BusinessException(
+        ErrorCode.PARAMS_ERROR,
+        '只能撤回自己发送的消息',
+      );
+
+    // 检查消息是否在2分钟内发送的
+    const now = new Date();
+    const sentAt = new Date(message.createdAt);
+    const timeDifference = now.getTime() - sentAt.getTime();
+    const twoMinutes = 2 * 60 * 1000; // 2分钟的时间差
+
+    if (timeDifference > twoMinutes) {
+      throw new BusinessException(
+        ErrorCode.PARAMS_ERROR,
+        '只能撤回2分钟内的消息',
+      );
+    }
+
     message.status = 'withdraw';
     await this.messageRepo.save(message);
+
+    // 通知所有会话成员消息已被撤回
+    this.eventEmitter.emit('message.withdrawn', {
+      messageId,
+      sessionId: message.sessionId,
+      userId,
+    });
     return message;
   }
 
@@ -301,6 +361,7 @@ export class ChatService {
                              ON m.id = r."messageId" AND r."userId" = $2
           WHERE m."sessionId" = ANY ($1)
             AND r.id IS NULL
+            AND m.status != 'withdraw'
             AND m."senderId" != $2
           GROUP BY m."sessionId"
       `,
@@ -336,7 +397,7 @@ export class ChatService {
       let avatar: string | undefined = undefined;
       if (session.type === 'single') {
         const other = singleSessionUserMap[session.id] as any;
-        name = other?.nickname || other?.name ||other?.userAccount || '对方';
+        name = other?.nickname || other?.name || other?.userAccount || '对方';
         avatar = other?.avatar || undefined;
       }
       return {
@@ -368,14 +429,15 @@ export class ChatService {
       records,
     };
   }
+
   /**
    * 设置会话的置顶/免打扰
    */
   async setSessionSetting(
-    userId: string,
     sessionId: string,
     { isPinned, isMuted }: { isPinned?: boolean; isMuted?: boolean },
   ) {
+    const userId = getLoginUser().id;
     let setting = await this.sessionSettingRepo.findOneBy({
       userId,
       sessionId,
@@ -392,7 +454,8 @@ export class ChatService {
   /**
    * 获取会话设置
    */
-  async getSessionSetting(userId: string, sessionId: string) {
+  async getSessionSetting(sessionId: string) {
+    const userId = getLoginUser().id;
     return this.sessionSettingRepo.findOneBy({ userId, sessionId });
   }
 
@@ -402,4 +465,28 @@ export class ChatService {
   async getSessionById(sessionId: string) {
     return this.sessionRepo.findOneBy({ id: sessionId });
   }
+
+  // async updateUserLastSeen(userId: string, timestamp: number) {
+  //   // 假设有 User 实体，且有 lastSeen 字段（Date 类型）
+  //   await this.userRepository.update(userId, { lastSeen: new Date(timestamp) });
+  // }
+  //
+  // async markMessageAck(messageId: string, userId: string) {
+  //   // 查找消息并更新状态为已送达
+  //   await this.messageRepo.update(messageId, {
+  //
+  //     status: 'delivered'
+  //   });
+  // }
+  //
+  // async getUnreadMessages(userId: string) {
+  //   return await this.readRepo.find({
+  //     where: {
+  //       receiverId: userId,
+  //     },
+  //     order: {
+  //       createdAt: 'ASC',
+  //     },
+  //   });
+  // }
 }

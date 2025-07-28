@@ -82,7 +82,7 @@ export class AuthController {
     status: 200, 
     description: '登出成功'
   })
-  @ApiResponse({ status: 401, description: '未授权' })
+
   async logout(@Req() req: Request) {
     const user = req.user as any;
     const userId = user?.sub || user?.id;

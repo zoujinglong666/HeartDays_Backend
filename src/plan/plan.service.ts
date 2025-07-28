@@ -13,7 +13,7 @@ import { PaginateResult } from '../common/interfaces/paginate-result.interface';
 import { PlanQueryDto } from './dto/plan-query.dto';
 import {
   BusinessException,
-  CommonResultCode,
+  ErrorCode,
 } from '../common/exceptions/business.exception';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { getLoginUser } from '../common/context/request-context';
@@ -28,7 +28,7 @@ export class PlanService {
   create(createPlanDto: CreatePlanDto) {
     const user = getLoginUser();
     if (!user) {
-      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+      throw new BusinessException(ErrorCode.NOT_LOGIN);
     }
     const plan = this.planRepository.create(createPlanDto);
     return this.planRepository.save({
@@ -47,7 +47,7 @@ export class PlanService {
 
   async update(id: string, updatePlanDto: UpdatePlanDto) {
     if (!id || !updatePlanDto) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     // 先执行更新操作
@@ -65,43 +65,43 @@ export class PlanService {
 
   async remove(id: string) {
     if (!id) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     // 获取当前登录用户
     const user = getLoginUser();
     if (!user) {
-      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+      throw new BusinessException(ErrorCode.NOT_LOGIN);
     }
 
     // 查找要删除的计划
     const plan = await this.planRepository.findOne({ where: { id } });
     if (!plan) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     // 检查是否是用户自己的数据
     if (plan.user_id !== user.id) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     return await this.planRepository.delete(id);
   }
   async remove1(id: string) {
     if (!id) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     const user = getLoginUser();
     if (!user) {
-      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+      throw new BusinessException(ErrorCode.NOT_LOGIN);
     }
 
     // 直接根据 id 和 user_id 删除，如果不存在或不属于当前用户，删除操作会返回 affected: 0
     const result = await this.planRepository.delete({ id, user_id: user.id });
 
     if (result.affected === 0) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     return { message: '删除成功' };
@@ -188,18 +188,18 @@ export class PlanService {
   async updateStatus(updateStatusDto: UpdateStatusDto) {
     const { id, status } = updateStatusDto;
     if (!id) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
 
     const user = getLoginUser();
 
     if (!user) {
-      throw new BusinessException(CommonResultCode.NOT_LOGIN);
+      throw new BusinessException(ErrorCode.NOT_LOGIN);
     }
 
     const planItem = await this.planRepository.findOne({ where: { id } });
     if (!planItem) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR);
+      throw new BusinessException(ErrorCode.PARAMS_ERROR);
     }
     // 取模实现循环切换
     const newStatus = (status + 1) % 3;

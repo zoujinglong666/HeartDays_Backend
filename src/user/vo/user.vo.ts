@@ -28,3 +28,23 @@ export class UserVO {
   @Expose()
   gender?: Gender;
 }
+
+export class UnaddedUserVO {
+  @Expose()
+  id: string;
+
+  @Expose()
+  name: string;
+
+  @Expose()
+  email?: string;
+
+  @Expose()
+  avatar?: string;
+
+  @Expose()
+  userAccount: string;
+
+  @Expose()
+  friendshipStatus?: 'pending' | 'accepted' | 'rejected' | 'blocked';
+}

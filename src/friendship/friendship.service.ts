@@ -181,4 +181,40 @@ export class FriendshipService {
       } as UserVO,
     }));
   }
+
+  /**
+   * 获取用户的好友列表
+   * @param userId 用户ID
+   * @returns 好友列表
+   */
+  async getFriends(userId: string): Promise<{
+    userAccount: string;
+    name: string | undefined;
+    id: string;
+    avatar: string | undefined;
+    email: string | undefined
+  }[]> {
+    const friends = await this.friendshipRepo.find({
+      where: [
+        { user_id: userId, status: 'accepted' },
+        { friend_id: userId, status: 'accepted' },
+      ],
+    });
+    
+    // 获取好友ID列表
+    const friendIds = friends.map((f) => (f.user_id === userId ? f.friend_id : f.user_id));
+    if (friendIds.length === 0) return [];
+    
+    // 批量查用户
+    const users = await this.userRepo.findByIds(friendIds);
+    
+    // 只返回需要的字段（UserVO）
+    return  users.map(u => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      email: u.email,
+      userAccount: u.userAccount,
+    }));
+  }
 }

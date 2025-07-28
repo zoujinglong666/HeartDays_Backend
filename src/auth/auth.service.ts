@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,7 +10,7 @@ import { SessionService } from './session.service';
 import { RefreshTokenDto, TokenResponseDto } from './dto/refresh-token.dto';
 import { Request } from 'express';
 import { SimpleEncryptor } from '../common/utils/simpleEncryptor.utils';
-import { BusinessException, CommonResultCode } from '../common/exceptions/business.exception';
+import { BusinessException, ErrorCode } from '../common/exceptions/business.exception';
 
 @Injectable()
 export class AuthService {
@@ -42,12 +42,12 @@ export class AuthService {
 
     // 确保提供了账号或邮箱
     if (!userAccount) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR, '请输入账号或邮箱');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '请输入账号或邮箱');
     }
     const decryptedPassword = SimpleEncryptor.decrypt(password, 'mySecret');
     const user = await this.validateUser(userAccount, decryptedPassword);
     if (!user) {
-      throw new BusinessException(CommonResultCode.PARAMS_ERROR,'账号或密码错误');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR,'账号或密码错误');
     }
 
     // 生成会话令牌和刷新令牌
@@ -92,20 +92,20 @@ export class AuthService {
       !registerUserDto.password ||
       !registerUserDto.confirmPassword
     ) {
-      throw new UnauthorizedException('请填写完整的注册信息');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '请填写完整的注册信息');
     }
     if (!registerUserDto.email) {
-      throw new UnauthorizedException('请填写邮箱');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '请填写邮箱');
     }
     // 检查邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(registerUserDto.email)) {
-      throw new UnauthorizedException('邮箱格式不正确');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '邮箱格式不正确');
     }
 
     // 判断密码 和确认密码是否一致
     if (registerUserDto.password !== registerUserDto.confirmPassword) {
-      throw new UnauthorizedException('密码和确认密码不一致');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '密码和确认密码不一致');
     }
     // 检查账号是否已存在
     const existingUserByAccount = await this.userRepository.findOne({
@@ -113,14 +113,14 @@ export class AuthService {
     });
 
     if (existingUserByAccount) {
-      throw new UnauthorizedException('账号已存在');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '账号已存在');
     }
     // 新增：检查邮箱是否已存在
     const existingUserByEmail = await this.userRepository.findOne({
       where: { email: registerUserDto.email },
     });
     if (existingUserByEmail) {
-      throw new UnauthorizedException('邮箱已被注册');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '邮箱已被注册');
     }
     // 加密密码
     const hashedPassword = await bcrypt.hash(registerUserDto.password, 10);
@@ -128,7 +128,7 @@ export class AuthService {
     // 创建用户
     const user = this.userRepository.create({
       ...registerUserDto,
-      name: '无名',
+      name: '未命名',
       roles: ['user'],
       password: hashedPassword,
     });
@@ -170,7 +170,7 @@ export class AuthService {
   ): Promise<TokenResponseDto> {
     const { refresh_token } = refreshTokenDto;
     if (!refresh_token) {
-      throw new UnauthorizedException('刷新令牌不存在');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新令牌不存在');
     }
     const ua = req?.headers['user-agent'] || '';
     // deviceId 从前端 deviceInfo 里获取，假设前端每次都带上
@@ -182,14 +182,14 @@ export class AuthService {
       deviceId,
     );
     if (!refreshInfo) {
-      throw new UnauthorizedException('刷新令牌无效、已过期或设备环境不一致');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新令牌无效、已过期或设备环境不一致');
     }
     const canRefresh = await this.sessionService.checkRefreshLimit(
       refreshInfo.userId,
     );
     console.log('刷新频率限制', canRefresh);
     if (!canRefresh) {
-      throw new UnauthorizedException('刷新操作过于频繁，请稍后再试');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新操作过于频繁，请稍后再试');
     }
 
     // 获取用户信息
@@ -198,7 +198,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('用户不存在或已被禁用');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户不存在或已被禁用');
     }
 
     // 生成新的会话令牌和刷新令牌
@@ -247,14 +247,14 @@ export class AuthService {
    */
   async getUserInfo(userId: string) {
     if (!userId) {
-      throw new UnauthorizedException('用户Id不存在');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户Id不存在');
     }
     const user = await this.userRepository.findOne({
       where: { id: userId, isActive: true },
     });
 
     if (!user) {
-      throw new UnauthorizedException('用户不存在');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户不存在');
     }
 
     return {

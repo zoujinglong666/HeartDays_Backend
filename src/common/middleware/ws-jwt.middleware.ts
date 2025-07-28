@@ -6,7 +6,7 @@ import { Socket } from 'socket.io';
 export class WsJwtMiddleware {
   constructor(private readonly jwtService: JwtService) {}
 
-  use(socket: Socket, next: (err?: any) => void) {
+  async use(socket: Socket, next: (err?: any) => void) {
     try {
       let token: string | undefined;
       // 1. 从 header 获取
@@ -21,16 +21,17 @@ export class WsJwtMiddleware {
         token = socket.handshake.query.token as string;
       }
       if (!token) throw new UnauthorizedException('No token provided');
-      console.log(token, 'token');
 
       // 3. 校验 token
-      const payload = this.jwtService.verify(token);
-      console.log(payload, 'payload');
+      const payload = await this.jwtService.verifyAsync(token);
+
+      console.log('WebSocket JWT 校验成功:', payload);
+
       socket.data.user = payload;
       next();
     } catch (err) {
       console.error('WebSocket JWT 校验失败:', err);
-      next(new UnauthorizedException('Invalid token'));
+      next(new UnauthorizedException('Invalid token ${token}'));
     }
   }
 }

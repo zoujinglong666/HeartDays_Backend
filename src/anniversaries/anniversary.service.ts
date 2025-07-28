@@ -1,10 +1,18 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Anniversary } from './anniversary.entity';
 import { CreateAnniversaryDto } from './dto/create-anniversary.dto';
 import { UpdateAnniversaryDto } from './dto/update-anniversary.dto';
 import { merge } from 'rxjs';
+import {
+  BusinessException,
+  ErrorCode,
+} from '../common/exceptions/business.exception';
 
 @Injectable()
 export class AnniversaryService {
@@ -35,7 +43,6 @@ export class AnniversaryService {
     });
   }
 
-
   async update(id: number, dto: UpdateAnniversaryDto): Promise<Anniversary> {
     const entity = await this.findOne(id);
     // 防止 user_id 被覆盖
@@ -45,7 +52,10 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-  async updateTest(id: number, dto: UpdateAnniversaryDto): Promise<Anniversary> {
+  async updateTest(
+    id: number,
+    dto: UpdateAnniversaryDto,
+  ): Promise<Anniversary> {
     const entity = await this.findOne(id);
     const { user_id, ...rest } = dto;
 
@@ -55,17 +65,23 @@ export class AnniversaryService {
     return await this.anniversaryRepo.save(entity);
   }
 
-  async remove(id: number, currentUserId: string, currentUserRoles: string[]): Promise<Anniversary> {
+  async remove(
+    id: number,
+    currentUserId: string,
+    currentUserRoles: string[],
+  ): Promise<Anniversary> {
     const entity = await this.findOne(id);
-    
+
     // 检查权限：只有管理员或纪念日创建者才能删除
     const isAdmin = currentUserRoles.includes('admin');
     const isOwner = entity.user_id === currentUserId;
-    
+
     if (!isAdmin && !isOwner) {
-      throw new ForbiddenException('权限不足，只有管理员或纪念日创建者才能删除');
+      throw new ForbiddenException(
+        '权限不足，只有管理员或纪念日创建者才能删除',
+      );
     }
-    
+
     return await this.anniversaryRepo.remove(entity);
   }
 }

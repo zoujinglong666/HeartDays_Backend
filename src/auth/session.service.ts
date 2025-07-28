@@ -117,8 +117,6 @@ export class SessionService {
     const refreshTokenKey = `refresh_token:${refreshToken}`;
     const data = await this.redisService.get(refreshTokenKey);
     if (!data) return null;
-    // 优先校验deviceId
-    console.log('校验刷新令牌', data, ua, deviceId);
     if (deviceId && data.deviceId && deviceId !== data.deviceId) {
       return null;
     }

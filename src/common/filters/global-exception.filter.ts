@@ -24,13 +24,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let res: any;
-
     if (exception instanceof BusinessException) {
       // 自定义业务异常，结构化信息
       res = {
         code: exception.code,
         message: exception.message,
-        detail: exception.detail,
       };
     } else if (exception instanceof HttpException) {
       res = exception.getResponse();
@@ -65,11 +63,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = '内部服务器错误';
     }
 
+    // 统一响应格式: { code, message, data }
+    const code = exception instanceof BusinessException ? exception.code : status;
     response.status(status).json({
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
+      code,
       message,
+      data: null
     });
   }
 }

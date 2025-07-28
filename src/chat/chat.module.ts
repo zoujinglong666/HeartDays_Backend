@@ -6,11 +6,14 @@ import { ChatMessage } from './entities/chat-message.entity';
 import { ChatMessageRead } from './entities/chat-message-read.entity';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
-import { JwtModule } from '@nestjs/jwt';
+
 import { ChatSessionSetting } from './entities/chat-session-setting.entity';
 import { ChatService } from './chat.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration from '../config/configuration';
+import { FriendshipModule } from '../friendship/friendship.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AuthModule } from '../auth/auth.module';
 
 
 @Module({
@@ -27,17 +30,12 @@ import configuration from '../config/configuration';
       load: [configuration],
     }),
     // 一定要使用配置方式
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
-        signOptions: { expiresIn: configService.get<string>('jwt.expiresIn') },
-      }),
-      inject: [ConfigService],
-    }),
+    AuthModule,
+    FriendshipModule,
+    EventEmitterModule.forRoot(),
   ],
   providers: [ChatService, ChatGateway],
   controllers: [ChatController],
   exports: [ChatService],
 })
-export class ChatModule {} 
+export class ChatModule {}
