@@ -158,6 +158,7 @@ export class PlanService {
     if (!userId) {
       throw new BusinessException(ErrorCode.PARAMS_ERROR, '缺少用户ID');
     }
+    console.log(query.page, query.pageSize);
     const skip = (page - 1) * pageSize;
     const where: any = {};
 
