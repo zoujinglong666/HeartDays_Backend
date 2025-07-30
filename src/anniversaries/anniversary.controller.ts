@@ -8,7 +8,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
-  ParseUUIDPipe, // 添加这个
+  ParseUUIDPipe, ForbiddenException, // 添加这个
 } from '@nestjs/common';
 import {
   ApiTags,

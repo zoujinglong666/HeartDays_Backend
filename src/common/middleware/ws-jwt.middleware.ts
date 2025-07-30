@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Socket } from 'socket.io';
+import { BusinessException, ErrorCode } from '../exceptions/business.exception';
 
 @Injectable()
 export class WsJwtMiddleware {
@@ -20,11 +21,9 @@ export class WsJwtMiddleware {
       if (!token && socket.handshake.query && socket.handshake.query.token) {
         token = socket.handshake.query.token as string;
       }
-      if (!token) throw new UnauthorizedException('No token provided');
-
+      if (!token) throw new BusinessException(ErrorCode.TOKEN_MISSING)
       // 3. 校验 token
       const payload = await this.jwtService.verifyAsync(token);
-
       console.log('WebSocket JWT 校验成功:', payload);
 
       socket.data.user = payload;

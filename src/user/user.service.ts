@@ -7,11 +7,7 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import {
-  UserNotFoundException,
-  EmailAlreadyExistsException,
-  UserAccountAlreadyExistsException,
-} from '../common/exceptions/custom.exception';
+
 
 import { PasswordUtils } from '../common/utils/password.utils';
 import { Friendship } from '../friendship/friendship.entity';
@@ -36,7 +32,7 @@ export class UserService {
     });
 
     if (existingUserByAccount) {
-      throw new UserAccountAlreadyExistsException(createUserDto.userAccount);
+      throw new BusinessException(ErrorCode.DATA_EXIST, '账号已被其它用户使用');
     }
 
     // 检查邮箱是否已存在
@@ -45,7 +41,7 @@ export class UserService {
     });
 
     if (existingUserByEmail) {
-      throw new EmailAlreadyExistsException(<string>createUserDto?.email);
+      throw new BusinessException(ErrorCode.DATA_EXIST, '邮箱已被其它用户使用');
     }
 
     const hashedPassword = PasswordUtils.encryptPassword(
@@ -91,7 +87,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new UserNotFoundException(id);
+      throw new BusinessException(ErrorCode.NOT_FOUND, '用户不存在')
     }
 
     return user;
@@ -130,10 +126,8 @@ export class UserService {
         updateUserDto.userAccount,
       );
       if (existingUser) {
-        throw new BusinessException(
-          ErrorCode.PARAMS_ERROR,
-          '账号已被其他用户使用',
-        );
+
+        throw new BusinessException(ErrorCode.DATA_EXIST, '账号已被其它用户使用');
       }
     }
 
@@ -142,7 +136,7 @@ export class UserService {
       const existingUserByEmail = await this.findByEmail(updateUserDto.email);
       if (existingUserByEmail && existingUserByEmail.id !== id) {
         throw new BusinessException(
-          ErrorCode.PARAMS_ERROR,
+          ErrorCode.DATA_EXIST,
           '邮箱已被其他用户使用',
         );
       }

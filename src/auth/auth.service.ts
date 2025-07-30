@@ -10,7 +10,10 @@ import { SessionService } from './session.service';
 import { RefreshTokenDto, TokenResponseDto } from './dto/refresh-token.dto';
 import { Request } from 'express';
 import { SimpleEncryptor } from '../common/utils/simpleEncryptor.utils';
-import { BusinessException, ErrorCode } from '../common/exceptions/business.exception';
+import {
+  BusinessException,
+  ErrorCode,
+} from '../common/exceptions/business.exception';
 
 @Injectable()
 export class AuthService {
@@ -47,7 +50,7 @@ export class AuthService {
     const decryptedPassword = SimpleEncryptor.decrypt(password, 'mySecret');
     const user = await this.validateUser(userAccount, decryptedPassword);
     if (!user) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR,'账号或密码错误');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '账号或密码错误');
     }
 
     // 生成会话令牌和刷新令牌
@@ -66,17 +69,7 @@ export class AuthService {
       deviceInfo,
       ua,
     );
-    // 生成访问令牌，包含会话令牌
-    const payload = {
-      email: user.email,
-      userAccount: user.userAccount,
-      sub: user.id,
-      roles: user.roles,
-      avatar: user.avatar,
-      name: user.name,
-      sessionToken, // 添加会话令牌到JWT
-    };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.generateToken(user,sessionToken);
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -86,13 +79,27 @@ export class AuthService {
     };
   }
 
+   generateToken(user: User, sessionToken: string) {
+    const payload = {
+      userAccount: user.userAccount,
+      sub: user.id,
+      roles: user.roles,
+      sessionToken,
+    };
+    const accessToken = this.jwtService.sign(payload);
+    return accessToken;
+  }
+
   async register(registerUserDto: RegisterUserDto) {
     if (
       !registerUserDto.userAccount ||
       !registerUserDto.password ||
       !registerUserDto.confirmPassword
     ) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '请填写完整的注册信息');
+      throw new BusinessException(
+        ErrorCode.PARAMS_ERROR,
+        '请填写完整的注册信息',
+      );
     }
     if (!registerUserDto.email) {
       throw new BusinessException(ErrorCode.PARAMS_ERROR, '请填写邮箱');
@@ -105,7 +112,10 @@ export class AuthService {
 
     // 判断密码 和确认密码是否一致
     if (registerUserDto.password !== registerUserDto.confirmPassword) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '密码和确认密码不一致');
+      throw new BusinessException(
+        ErrorCode.PARAMS_ERROR,
+        '密码和确认密码不一致',
+      );
     }
     // 检查账号是否已存在
     const existingUserByAccount = await this.userRepository.findOne({
@@ -170,10 +180,9 @@ export class AuthService {
   ): Promise<TokenResponseDto> {
     const { refresh_token } = refreshTokenDto;
     if (!refresh_token) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新令牌不存在');
+      throw new BusinessException(ErrorCode.NO_REFRESH_TOKEN, '刷新令牌不存在');
     }
     const ua = req?.headers['user-agent'] || '';
-    // deviceId 从前端 deviceInfo 里获取，假设前端每次都带上
     const deviceId = req?.body?.deviceId || undefined;
     // 刷新频率限制
     const refreshInfo = await this.sessionService.validateRefreshToken(
@@ -182,14 +191,19 @@ export class AuthService {
       deviceId,
     );
     if (!refreshInfo) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新令牌无效、已过期或设备环境不一致');
+      throw new BusinessException(
+        ErrorCode.REFRESH_TOKEN_INVALID,
+        '刷新令牌无效或已过期',
+      );
     }
     const canRefresh = await this.sessionService.checkRefreshLimit(
       refreshInfo.userId,
     );
-    console.log('刷新频率限制', canRefresh);
     if (!canRefresh) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '刷新操作过于频繁，请稍后再试');
+      throw new BusinessException(
+        ErrorCode.TOO_MANY_REQUESTS,
+        '刷新操作过于频繁，请稍后再试',
+      );
     }
 
     // 获取用户信息
@@ -198,7 +212,10 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户不存在或已被禁用');
+      throw new BusinessException(
+        ErrorCode.NOT_FOUND,
+        '用户不存在或已被禁用',
+      );
     }
 
     // 生成新的会话令牌和刷新令牌
@@ -221,18 +238,7 @@ export class AuthService {
     );
 
     // 生成新的访问令牌
-    const payload = {
-      email: user.email,
-      userAccount: user.userAccount,
-      sub: user.id,
-      roles: user.roles,
-      avatar: user.avatar,
-      name: user.name,
-      sessionToken: newSessionToken,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
-
+    const accessToken = this.generateToken(user,newSessionToken);
     return {
       access_token: accessToken,
       refresh_token: newRefreshToken,
@@ -241,6 +247,8 @@ export class AuthService {
       refresh_expires_in: 7 * 24 * 60 * 60, // 7天
     };
   }
+
+
 
   /**
    * 获取用户信息（用于登录响应）
@@ -254,7 +262,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户不存在');
+      throw new BusinessException(ErrorCode.NOT_FOUND, '用户不存在或已被禁用');
     }
 
     return {

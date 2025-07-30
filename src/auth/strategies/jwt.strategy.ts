@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
+import { BusinessException, ErrorCode } from '../../common/exceptions/business.exception';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -21,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // 验证会话是否有效
     const sessionToken = payload.sessionToken;
     if (!sessionToken) {
-      throw new UnauthorizedException('无效的会话令牌');
+      throw new BusinessException(ErrorCode.NOT_LOGIN, '无效的会话令牌');
     }
 
     // 验证会话是否在Redis中存在且有效
@@ -31,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     );
 
     if (!isValidSession) {
-      throw new UnauthorizedException('会话已失效，请重新登录');
+      throw new BusinessException(ErrorCode.NOT_LOGIN, '会话已失效，请重新登录');
     }
 
     return {

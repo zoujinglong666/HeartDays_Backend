@@ -12,6 +12,10 @@ import { UserVO } from '../user/vo/user.vo';
 import { User } from '../user/user.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
 import { ChatSession } from '../chat/entities/chat-session.entity';
+import {
+  BusinessException,
+  ErrorCode,
+} from '../common/exceptions/business.exception';
 
 @Injectable()
 export class FriendshipService {
@@ -26,12 +30,13 @@ export class FriendshipService {
   ) {}
 
   async requestFriend(friendId: string) {
-    if (!friendId) throw new BadRequestException('friendId不能为空');
-
+    if (!friendId) {
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, 'friendId不能为空');
+    }
     // 获取发起人信息
     const fromUser = getLoginUser();
     const userId = fromUser.id;
-    if (userId === friendId) throw new BadRequestException('不能加自己为好友');
+    if (userId === friendId)  throw new BusinessException(ErrorCode.PARAMS_ERROR, '不能添加自己为好友');
 
     let friendship = await this.friendshipRepo.findOne({
       where: [
@@ -48,15 +53,14 @@ export class FriendshipService {
     };
 
     if (friendship) {
-      if (friendship.status === 'accepted')
-        throw new BadRequestException('已是好友');
+      if (friendship.status === 'accepted'){
+        throw new BusinessException(ErrorCode.PARAMS_ERROR, '已是好友,不能重复添加');
+      }
       friendship.status = 'pending';
       friendship.updated_at = new Date();
       this.notificationGateway.notifyFriendRequest(friendId, notifyPayload);
       return this.friendshipRepo.save(friendship);
     }
-
-    console.log('通知对方发起好友请求');
     this.notificationGateway.notifyFriendRequest(friendId, notifyPayload);
     return this.friendshipRepo.save({
       user_id: userId,
@@ -71,7 +75,7 @@ export class FriendshipService {
     const friendship = await this.friendshipRepo.findOne({
       where: { id: requestId },
     });
-    if (!friendship) throw new NotFoundException('请求不存在');
+    if (!friendship)  throw new BusinessException(ErrorCode.PARAMS_ERROR, '好友请求不存在');
     friendship.status = action === 'accept' ? 'accepted' : 'rejected';
     friendship.updated_at = new Date();
     return this.friendshipRepo.save(friendship);
@@ -86,12 +90,14 @@ export class FriendshipService {
       ],
     });
     // 获取好友ID列表
-    const friendIds = friends.map((f) => (f.user_id === userId ? f.friend_id : f.user_id));
+    const friendIds = friends.map((f) =>
+      f.user_id === userId ? f.friend_id : f.user_id,
+    );
     if (friendIds.length === 0) return [];
     // 批量查用户
     const users = await this.userRepo.findByIds(friendIds);
     // 只返回需要的字段（UserVO）
-    return users.map(u => ({
+    return users.map((u) => ({
       id: u.id,
       name: u.name,
       avatar: u.avatar,
@@ -109,39 +115,42 @@ export class FriendshipService {
       ],
     });
     // 获取好友ID列表
-    const friendIds = friends.map((f) => (f.user_id === userId ? f.friend_id : f.user_id));
+    const friendIds = friends.map((f) =>
+      f.user_id === userId ? f.friend_id : f.user_id,
+    );
     if (friendIds.length === 0) return [];
     // 批量查用户
     const users = await this.userRepo.findByIds(friendIds);
 
     // 构建用户ID到用户对象的映射
-    const userMap = new Map(users.map(u => [u.id, u]));
-
+    const userMap = new Map(users.map((u) => [u.id, u]));
 
     // 合并好友信息和会话信息
-    return friends.map(f => {
-      const friendId = f.user_id === userId ? f.friend_id : f.user_id;
-      const user = userMap.get(friendId);
-      if (user) {
-        return {
-          id: user.id,
-          name: user.name,
-          avatar: user.avatar,
-          email: user.email,
-          userAccount: user.userAccount,
-          // 假设会话信息在 Friendship 实体的 conversationInfo 字段
-          conversationInfo: null
-        };
-      }
-      return null;
-    }).filter(Boolean);
+    return friends
+      .map((f) => {
+        const friendId = f.user_id === userId ? f.friend_id : f.user_id;
+        const user = userMap.get(friendId);
+        if (user) {
+          return {
+            id: user.id,
+            name: user.name,
+            avatar: user.avatar,
+            email: user.email,
+            userAccount: user.userAccount,
+            // 假设会话信息在 Friendship 实体的 conversationInfo 字段
+            conversationInfo: null,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
   }
 
   // 获取我收到的好友申请列表
 
   async getReceivedFriendRequests(): Promise<any[]> {
     const userId = getLoginUser().id;
-  
+
     // 联表查出所有字段和发起人信息
     const requests = await this.friendshipRepo
       .createQueryBuilder('f')
@@ -163,9 +172,9 @@ export class FriendshipService {
         'u.userAccount AS u_userAccount', // 如果 UserVO 需要
       ])
       .getRawMany();
-  
+
     // 组装返回结构
-    return requests.map(r => ({
+    return requests.map((r) => ({
       id: r.id,
       user_id: r.user_id,
       friend_id: r.friend_id,
@@ -187,29 +196,33 @@ export class FriendshipService {
    * @param userId 用户ID
    * @returns 好友列表
    */
-  async getFriends(userId: string): Promise<{
-    userAccount: string;
-    name: string | undefined;
-    id: string;
-    avatar: string | undefined;
-    email: string | undefined
-  }[]> {
+  async getFriends(userId: string): Promise<
+    {
+      userAccount: string;
+      name: string | undefined;
+      id: string;
+      avatar: string | undefined;
+      email: string | undefined;
+    }[]
+  > {
     const friends = await this.friendshipRepo.find({
       where: [
         { user_id: userId, status: 'accepted' },
         { friend_id: userId, status: 'accepted' },
       ],
     });
-    
+
     // 获取好友ID列表
-    const friendIds = friends.map((f) => (f.user_id === userId ? f.friend_id : f.user_id));
+    const friendIds = friends.map((f) =>
+      f.user_id === userId ? f.friend_id : f.user_id,
+    );
     if (friendIds.length === 0) return [];
-    
+
     // 批量查用户
     const users = await this.userRepo.findByIds(friendIds);
-    
+
     // 只返回需要的字段（UserVO）
-    return  users.map(u => ({
+    return users.map((u) => ({
       id: u.id,
       name: u.name,
       avatar: u.avatar,

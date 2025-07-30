@@ -11,6 +11,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { requestContext } from '../../common/context/request-context';
 import { RedisService } from '../../redis/redis.service';
 import { SessionService } from '../session.service';
+import { BusinessException, ErrorCode } from '../../common/exceptions/business.exception';
 // 该代码实现了一个基于 JWT 的守卫（AuthGuard），用于验证用户身份。功能如下：
 //
 // 1. **判断是否为公开接口**：通过 `@Public()` 装饰器标记的接口无需认证。
@@ -38,27 +39,37 @@ export class AuthGuard implements CanActivate {
     if (isPublic) {
       return true;
     }
-
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      throw new UnauthorizedException('未提供认证令牌，请先登录');
+      throw new BusinessException(
+        ErrorCode.TOKEN_MISSING,
+        '未提供认证令牌，请先登录',
+      );
+
     }
 
     try {
       const payload = await this.jwtService.verifyAsync(token);
-
       // 验证会话是否有效
       const sessionToken = payload.sessionToken;
       if (!sessionToken) {
-        throw new UnauthorizedException('无效的会话令牌');
+        throw new BusinessException(
+          ErrorCode.NOT_LOGIN,
+          '未提供认证令牌，请先登录',
+        );
       }
 
       // 验证会话是否在Redis中存在且有效
-      const sessionInfo = await this.sessionService.validateSessionToken(sessionToken);
+      const sessionInfo =
+        await this.sessionService.validateSessionToken(sessionToken);
       if (!sessionInfo || sessionInfo.userId !== payload.sub) {
-        throw new UnauthorizedException('会话已失效，请重新登录');
+
+        throw new BusinessException(
+          ErrorCode.NOT_LOGIN,
+          '会话已失效，请重新登录',
+        );
       }
 
       // 存储到 AsyncLocalStorage
@@ -73,7 +84,11 @@ export class AuthGuard implements CanActivate {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException('认证令牌无效或已过期，请重新登录');
+
+      throw new BusinessException(
+        ErrorCode.NOT_LOGIN,
+        '认证令牌无效或已过期，请重新登录',
+      );
     }
   }
 
@@ -82,4 +97,3 @@ export class AuthGuard implements CanActivate {
     return type === 'Bearer' ? token : undefined;
   }
 }
- 

@@ -9,7 +9,6 @@ import {
   HttpStatus,
   UseGuards,
   Query,
-  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -26,7 +25,6 @@ export class UserController {
   async create(@Body() createUserDto: CreateUserDto) {
     return await this.userService.create(createUserDto);
   }
-
   @Get()
   @UseGuards(RolesGuard)
   @Roles('admin')

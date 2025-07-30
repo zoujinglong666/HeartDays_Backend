@@ -159,7 +159,7 @@ export class ChatService {
 
   async updateGroup(sessionId: string, dto: UpdateGroupDto) {
     const session = await this.sessionRepo.findOneBy({ id: sessionId });
-    if (!session || session.type !== 'group') throw new Error('群聊不存在');
+    if (!session || session.type !== 'group') throw new BusinessException(ErrorCode.PARAMS_ERROR, '群聊不存在');
 
     if (dto.name) {
       session.name = dto.name;

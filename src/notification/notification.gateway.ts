@@ -46,7 +46,7 @@ export class NotificationGateway
     fromUser: { id: string; avatar: string },
   ) {
     // 推送到指定用户的房间
-    console.log('notifyFriendRequest', toUserId, fromUser);
+    console.log('推送到指定用户的房间', toUserId, fromUser);
     this.server.to(`user_${toUserId}`).emit('friendRequest', {
       from: fromUser,
       time: new Date().toISOString(),

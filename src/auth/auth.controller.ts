@@ -13,6 +13,7 @@ import { RegisterUserDto } from '../user/dto/register-user.dto';
 import { Request } from 'express';
 import { parseDeviceInfo } from './utils/device-parser.util';
 import { RefreshTokenDto, TokenResponseDto } from './dto/refresh-token.dto';
+import { BusinessException, ErrorCode } from '../common/exceptions/business.exception';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -55,7 +56,6 @@ export class AuthController {
     description: '注册成功',
     type: ApiResponseDto<LoginResponseDto>
   })
-  @ApiResponse({ status: 409, description: '账号或邮箱已存在' })
   async register(@Body() registerUserDto: RegisterUserDto) {
     return await this.authService.register(registerUserDto);
   }
@@ -70,7 +70,6 @@ export class AuthController {
     description: '刷新成功',
     type: ApiResponseDto<TokenResponseDto>
   })
-  @ApiResponse({ status: 401, description: '刷新令牌无效' })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto, @Req() req: Request) {
     return await this.authService.refreshToken(refreshTokenDto, req);
   }
@@ -87,7 +86,7 @@ export class AuthController {
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {
-      throw new UnauthorizedException('用户信息无效');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效')
     }
     await this.authService.logout(userId);
     return { message: '登出成功' };
@@ -100,12 +99,11 @@ export class AuthController {
     status: 200, 
     description: '获取成功'
   })
-  @ApiResponse({ status: 401, description: '未授权' })
   async getSession(@Req() req: Request) {
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {
-      throw new UnauthorizedException('用户信息无效');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效')
     }
     
     const session = await this.authService.getUserSession(userId);

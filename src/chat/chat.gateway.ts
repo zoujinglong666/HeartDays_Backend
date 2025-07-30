@@ -53,6 +53,7 @@ export class ChatGateway implements OnGatewayInit {
 
   async handleConnection(client: Socket) {
     const user = client.data.user;
+    console.log(this.userSocketMap.size,'userSocketMap');
     if (!user) {
       client.disconnect();
       return;
@@ -200,7 +201,6 @@ export class ChatGateway implements OnGatewayInit {
         data.messageId,
         userId,
       );
-      console.log('撤回消息:', message);
 
       // 通知会话中的所有成员消息已被撤回
       this.server.to(data.sessionId).emit('messageWithdrawn', {
