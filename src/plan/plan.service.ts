@@ -156,10 +156,9 @@ export class PlanService {
   async findByUser(query: PlanQueryDto): Promise<PaginateResult<Plan>> {
     const { page = 1, pageSize = 10, userId } = query;
     if (!userId) {
-      throw new Error('userId is required');
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '缺少用户ID');
     }
     const skip = (page - 1) * pageSize;
-
     const where: any = {};
 
     if (userId !== undefined) where.user_id = userId;
