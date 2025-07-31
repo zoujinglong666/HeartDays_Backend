@@ -24,4 +24,9 @@ export class Friendship {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
+
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  friend_nickname: string;
+
 }

@@ -10,6 +10,7 @@ import { FriendshipService } from './friendship.service';
 import { RequestFriendDto } from './dto/request-friend.dto';
 import { RespondFriendRequestDto } from './dto/respond-friend-request.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { SettingFriendDto } from './dto/setting-friend.dto';
 
 @Controller('friends')
 @UseGuards(AuthGuard('jwt'))
@@ -38,5 +39,12 @@ export class FriendshipController {
   @Get('requests/received')
   async getReceivedFriendRequests() {
     return this.friendshipService.getReceivedFriendRequests();
+  }
+
+  @Post('setting/nickname')
+  async settingFriendNickname(@Body() settingFriendDto: SettingFriendDto) {
+    return this.friendshipService.settingFriendNickname(
+      settingFriendDto
+    );
   }
 }

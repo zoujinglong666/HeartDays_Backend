@@ -65,4 +65,8 @@ export class User {
   @ApiProperty({ description: '更新时间' })
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // @ApiProperty({ description: '最后活跃时间' })
+  // @Column({ type: 'timestamp', nullable: true })
+  // lastSeen: Date;
 }

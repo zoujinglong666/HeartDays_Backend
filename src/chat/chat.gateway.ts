@@ -265,7 +265,7 @@ export class ChatGateway implements OnGatewayInit {
 
     try {
       // 更新消息状态为已送达
-      // await this.chatService.markMessageAck(data.messageId, userId);
+      await this.chatService.markMessageAck(data.messageId, userId);
 
       // 通知其他会话成员（除发送者）
       client.to(data.sessionId).emit('messageAck', {

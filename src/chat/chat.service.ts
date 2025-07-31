@@ -16,8 +16,8 @@ import {
   BusinessException,
   ErrorCode,
 } from '../common/exceptions/business.exception';
-
-import { Logger } from '@nestjs/common';
+import { Friendship } from '../friendship/friendship.entity';
+import { FriendshipService } from '../friendship/friendship.service';
 
 @Injectable()
 export class ChatService {
@@ -32,6 +32,7 @@ export class ChatService {
     private readRepo: Repository<ChatMessageRead>,
     @InjectRepository(ChatSessionSetting)
     private sessionSettingRepo: Repository<ChatSessionSetting>,
+    private friendshipService: FriendshipService,
     private eventEmitter: EventEmitter2,
   ) {}
 
@@ -378,7 +379,8 @@ export class ChatService {
           FROM chat_messages m
                    LEFT JOIN chat_message_reads r
                              ON m.id = r."messageId" AND r."userId" = $2
-          WHERE m."sessionId" = ANY ($1) AND m.status != 'withdraw'
+          WHERE m."sessionId" = ANY ($1)
+            AND m.status != 'withdraw'
             AND r.id IS NULL
             AND m."senderId" != $2
           GROUP BY m."sessionId"
@@ -408,35 +410,43 @@ export class ChatService {
     }
 
     // 6. 组装结果
-    const records = sessions.map((session) => {
+    const records = await Promise.all(sessions.map(async (session) => {
       const lastMsg = lastMessages[session.id];
       const unread = unreadCounts[session.id] || 0;
-      let name = session.name;
+      let name: string = session.name;
       let avatar: string | undefined = undefined;
+
       if (session.type === 'single') {
-        const other = singleSessionUserMap[session.id] as any;
-        name = other?.nickname || other?.name || other?.userAccount || '对方';
-        avatar = other?.avatar || undefined;
+        const friend = singleSessionUserMap[session.id] as any;
+        if (friend) {
+          const remark = await this.friendshipService.getFriendRemark(friend.id);
+          console.log(remark,'remark');// ✅ await
+          name = remark || friend.name || friend.userAccount || '对方';
+          avatar = friend.avatar;
+        }
       }
+
       return {
         sessionId: session.id,
         type: session.type,
         name,
+
         avatar,
         lastMessage: lastMsg
           ? {
-              content: lastMsg.content,
-              type: lastMsg.type,
-              createdAt: lastMsg.createdat || lastMsg.createdAt,
-              senderId: lastMsg.senderid || lastMsg.senderId,
-              status: lastMsg.status,
-            }
+            content: lastMsg.content,
+            type: lastMsg.type,
+            createdAt: lastMsg.createdat || lastMsg.createdAt,
+            senderId: lastMsg.senderid || lastMsg.senderId,
+            status: lastMsg.status,
+          }
           : null,
         unreadCount: unread,
         isPinned: !!pinMap[session.id],
         isMuted: !!muteMap[session.id],
       };
-    });
+    }));
+
     return {
       total,
       size: pageSize,
@@ -444,8 +454,10 @@ export class ChatService {
       pages: Math.ceil(total / pageSize),
       hasNext: page * pageSize < total,
       hasPrev: page > 1,
-      records,
+      records, // ✅ 已解析完毕的对象数组
     };
+
+
   }
 
   /**
@@ -485,26 +497,49 @@ export class ChatService {
   }
 
   // async updateUserLastSeen(userId: string, timestamp: number) {
-  //   // 假设有 User 实体，且有 lastSeen 字段（Date 类型）
-  //   await this.userRepository.update(userId, { lastSeen: new Date(timestamp) });
+  //   const user = await this.userRepo.findOneBy({ id: userId });
+  //   if (!user) {
+  //     throw new BusinessException(ErrorCode.NULL_ERROR, '用户不存在');
+  //   }
+  //   user.lastSeen = new Date(timestamp);
+  //   await this.userRepo.save(user);
   // }
-  //
-  // async markMessageAck(messageId: string, userId: string) {
-  //   // 查找消息并更新状态为已送达
-  //   await this.messageRepo.update(messageId, {
-  //
-  //     status: 'delivered'
-  //   });
-  // }
-  //
-  // async getUnreadMessages(userId: string) {
-  //   return await this.readRepo.find({
-  //     where: {
-  //       receiverId: userId,
-  //     },
-  //     order: {
-  //       createdAt: 'ASC',
-  //     },
-  //   });
-  // }
+
+  async markMessageAck(messageId: string, userId: string) {
+    return this.messageRepo.manager.transaction(
+      async (transactionalManager) => {
+        const message = await transactionalManager.findOneBy(ChatMessage, {
+          id: messageId,
+          senderId: userId,
+        });
+        if (!message) {
+          throw new BusinessException(
+            ErrorCode.NULL_ERROR,
+            '消息不存在或无权限操作',
+          );
+        }
+        message.status = 'delivered';
+        await transactionalManager.save(message);
+        return message;
+      },
+    );
+  }
+
+  async getUnreadMessages(userId: string) {
+    const unreadMessages = await this.messageRepo
+      .createQueryBuilder('message')
+      .leftJoin(
+        ChatMessageRead,
+        'read',
+        'message.id = read.messageId AND read.userId = :userId',
+        { userId },
+      )
+      .where('message.receiverId = :userId', { userId })
+      .andWhere('message.status != :status', { status: 'withdraw' })
+      .andWhere('read.id IS NULL')
+      .orderBy('message.createdAt', 'ASC')
+      .getMany();
+
+    return unreadMessages;
+  }
 }

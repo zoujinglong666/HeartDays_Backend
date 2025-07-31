@@ -16,6 +16,7 @@ import {
   BusinessException,
   ErrorCode,
 } from '../common/exceptions/business.exception';
+import { SettingFriendDto } from './dto/setting-friend.dto';
 
 @Injectable()
 export class FriendshipService {
@@ -25,8 +26,6 @@ export class FriendshipService {
     private readonly notificationGateway: NotificationGateway,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    @InjectRepository(ChatSession)
-    private readonly chatSessionRepo: Repository<ChatSession>,
   ) {}
 
   async requestFriend(friendId: string) {
@@ -36,7 +35,8 @@ export class FriendshipService {
     // 获取发起人信息
     const fromUser = getLoginUser();
     const userId = fromUser.id;
-    if (userId === friendId)  throw new BusinessException(ErrorCode.PARAMS_ERROR, '不能添加自己为好友');
+    if (userId === friendId)
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '不能添加自己为好友');
 
     let friendship = await this.friendshipRepo.findOne({
       where: [
@@ -53,8 +53,11 @@ export class FriendshipService {
     };
 
     if (friendship) {
-      if (friendship.status === 'accepted'){
-        throw new BusinessException(ErrorCode.PARAMS_ERROR, '已是好友,不能重复添加');
+      if (friendship.status === 'accepted') {
+        throw new BusinessException(
+          ErrorCode.PARAMS_ERROR,
+          '已是好友,不能重复添加',
+        );
       }
       friendship.status = 'pending';
       friendship.updated_at = new Date();
@@ -75,7 +78,8 @@ export class FriendshipService {
     const friendship = await this.friendshipRepo.findOne({
       where: { id: requestId },
     });
-    if (!friendship)  throw new BusinessException(ErrorCode.PARAMS_ERROR, '好友请求不存在');
+    if (!friendship)
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '好友请求不存在');
     friendship.status = action === 'accept' ? 'accepted' : 'rejected';
     friendship.updated_at = new Date();
     return this.friendshipRepo.save(friendship);
@@ -229,5 +233,47 @@ export class FriendshipService {
       email: u.email,
       userAccount: u.userAccount,
     }));
+  }
+
+  async settingFriendNickname(settingFriendDto: SettingFriendDto) {
+    const { friendId, friendNickname } = settingFriendDto;
+
+    if (!friendId || !friendNickname) {
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '参数不完整');
+    }
+    const currentUserId = getLoginUser().id;
+    // 限定当前用户只能设置自己发起的好友关系昵称
+    const friendship = await this.friendshipRepo.findOne({
+      where: {
+        user_id: currentUserId,
+        friend_id: friendId,
+        status: 'accepted',
+      },
+    });
+
+    if (!friendship) {
+      throw new BusinessException(
+        ErrorCode.PARAMS_ERROR,
+        '好友不存在或关系非法',
+      );
+    }
+
+    friendship.friend_nickname = friendNickname;
+    friendship.updated_at = new Date(); // 如果有更新时间字段
+    return this.friendshipRepo.save(friendship);
+  }
+
+  async getFriendRemark(friendId: string) {
+    const loginUserId = getLoginUser().id;
+    const record = await this.friendshipRepo.findOne({
+      where: {
+        user_id: loginUserId,
+        friend_id: friendId,
+        status: 'accepted',
+      },
+    });
+    console.log(record, 'getFriendRemark');
+
+    return record?.friend_nickname || '';
   }
 }
