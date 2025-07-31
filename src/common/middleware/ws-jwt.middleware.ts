@@ -23,6 +23,8 @@ export class WsJwtMiddleware {
       }
       if (!token) throw new BusinessException(ErrorCode.TOKEN_MISSING)
       // 3. 校验 token
+      console.log(token,'token');
+
       const payload = await this.jwtService.verifyAsync(token);
       console.log('WebSocket JWT 校验成功:', payload);
 

@@ -53,7 +53,6 @@ export class ChatGateway implements OnGatewayInit {
 
   async handleConnection(client: Socket) {
     const user = client.data.user;
-    console.log(this.userSocketMap.size,'userSocketMap');
     if (!user) {
       client.disconnect();
       return;
@@ -88,21 +87,22 @@ export class ChatGateway implements OnGatewayInit {
       // 清除Redis中的在线状态
       try {
         await this.redisService.del(`${this.ONLINE_KEY_PREFIX}${user.sub}`);
-
+        console.log(client);
         // 通知好友该用户下线
         await this.notifyFriendsStatus(user.sub, 'offline');
       } catch (error) {
         console.error('清除用户在线状态失败:', error);
       }
-
-      console.log('WebSocket断开:', user.userId);
+      console.log('WebSocket断开:', user.sub);
     }
   }
 
   @SubscribeMessage('joinSession')
   handleJoinSession(@MessageBody() data, @ConnectedSocket() client: Socket) {
     console.log('joinSession', data);
-    client.join(data.sessionId);
+    if (!client.rooms.has(data.sessionId)) {
+      client.join(data.sessionId);
+    }
     return { joined: data.sessionId };
   }
 
@@ -119,15 +119,11 @@ export class ChatGateway implements OnGatewayInit {
         data.sessionId,
       );
       const receiver = sessionMembers.find((m) => m.userId !== user.sub);
-      if (!receiver) {
-        return { error: '未找到接收者' };
-      }
-
       const message = await this.chatService.sendMessage(
         {
           ...data,
           sessionId: data.sessionId,
-          receiverId: receiver.userId,
+          receiverId: receiver?.userId,
           type: data.type ?? 'text',
         },
         user.sub,
@@ -140,14 +136,15 @@ export class ChatGateway implements OnGatewayInit {
       });
 
       // 向发送者确认消息已发送
-      client.emit('messageSent', {
+      const messageSentData = {
         localId: data.localId,
         messageId: message.id,
         timestamp: new Date(),
-      });
+      };
+        client.emit('messageSent', messageSentData);
 
       // 检查接收者是否在线，如果在线则发送消息
-      const receiverSocket = this.userSocketMap.get(receiver.userId);
+      const receiverSocket = this.userSocketMap.get(<string>receiver?.userId);
       if (receiverSocket) {
         // 发送消息给接收者
         receiverSocket.emit('newMessage', {
@@ -361,6 +358,13 @@ export class ChatGateway implements OnGatewayInit {
     if (!userId) return;
 
     // this.chatService.updateUserLastSeen(userId, data.timestamp);
+    // 更新Redis保持在线状态
+    this.redisService.set(
+      `${this.ONLINE_KEY_PREFIX}${userId}`,
+      '1',
+      this.ONLINE_EXPIRE_TIME,
+    );
+
 
     // 可回复pong，维持连接活跃
     client.emit('pong', { timestamp: data.timestamp });
@@ -439,6 +443,11 @@ export class ChatGateway implements OnGatewayInit {
     sessionId: string;
     userId: string;
   }) {
+    // 添加空值检查
+    if (!payload.messageId) {
+      console.error('消息撤回事件中 messageId 为空');
+      return;
+    }
     // 通知会话中的所有成员消息已被撤回
     this.server.to(payload.sessionId).emit('messageWithdrawn', {
       messageId: payload.messageId,

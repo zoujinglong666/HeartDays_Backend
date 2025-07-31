@@ -17,6 +17,8 @@ import {
   ErrorCode,
 } from '../common/exceptions/business.exception';
 
+import { Logger } from '@nestjs/common';
+
 @Injectable()
 export class ChatService {
   constructor(
@@ -159,7 +161,8 @@ export class ChatService {
 
   async updateGroup(sessionId: string, dto: UpdateGroupDto) {
     const session = await this.sessionRepo.findOneBy({ id: sessionId });
-    if (!session || session.type !== 'group') throw new BusinessException(ErrorCode.PARAMS_ERROR, '群聊不存在');
+    if (!session || session.type !== 'group')
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '群聊不存在');
 
     if (dto.name) {
       session.name = dto.name;
@@ -232,39 +235,55 @@ export class ChatService {
   }
 
   async withdrawMessage(messageId: string, userId: string) {
-    // 先查消息是否存在
-    const message = await this.messageRepo.findOneBy({ id: messageId });
-    if (!message)
-      throw new BusinessException(ErrorCode.NULL_ERROR, '消息不存在');
-    if (message.senderId !== userId)
-      throw new BusinessException(
-        ErrorCode.PARAMS_ERROR,
-        '只能撤回自己发送的消息',
-      );
+    return this.messageRepo.manager.transaction(
+      async (transactionalManager) => {
+        // 先查消息是否存在
+        const message = await transactionalManager.findOneBy(ChatMessage, {
+          id: messageId,
+        });
+        if (!message) {
+          console.error(`尝试撤回不存在的消息，消息ID: ${messageId}`);
+          throw new BusinessException(ErrorCode.NULL_ERROR, '消息不存在');
+        }
+        if (message.senderId !== userId) {
+          console.error(
+            `用户 ${userId} 尝试撤回他人消息，消息ID: ${messageId}`,
+          );
+          throw new BusinessException(
+            ErrorCode.PARAMS_ERROR,
+            '只能撤回自己发送的消息',
+          );
+        }
 
-    // 检查消息是否在2分钟内发送的
-    const now = new Date();
-    const sentAt = new Date(message.createdAt);
-    const timeDifference = now.getTime() - sentAt.getTime();
-    const twoMinutes = 2 * 60 * 1000; // 2分钟的时间差
+        // 检查消息是否在2分钟内发送的
+        const now = new Date();
+        const sentAt = new Date(message.createdAt);
+        const timeDifference = now.getTime() - sentAt.getTime();
+        const twoMinutes = 2 * 60 * 1000; // 2分钟的时间差
 
-    if (timeDifference > twoMinutes) {
-      throw new BusinessException(
-        ErrorCode.PARAMS_ERROR,
-        '只能撤回2分钟内的消息',
-      );
-    }
+        if (timeDifference > twoMinutes) {
+          console.error(
+            `尝试撤回超时消息，消息ID: ${messageId}，发送时间: ${sentAt}`,
+          );
+          throw new BusinessException(
+            ErrorCode.PARAMS_ERROR,
+            '只能撤回2分钟内的消息',
+          );
+        }
 
-    message.status = 'withdraw';
-    await this.messageRepo.save(message);
+        message.status = 'withdraw';
+        await transactionalManager.save(message);
 
-    // 通知所有会话成员消息已被撤回
-    this.eventEmitter.emit('message.withdrawn', {
-      messageId,
-      sessionId: message.sessionId,
-      userId,
-    });
-    return message;
+        // 通知所有会话成员消息已被撤回
+        this.eventEmitter.emit('message.withdrawn', {
+          messageId,
+          sessionId: message.sessionId,
+          userId,
+        });
+        console.log(`消息撤回成功，消息ID: ${messageId}，用户ID: ${userId}`);
+        return message;
+      },
+    );
   }
 
   /**
@@ -343,7 +362,7 @@ export class ChatService {
           SELECT DISTINCT
           ON ("sessionId") *
           FROM chat_messages
-          WHERE "sessionId" = ANY ($1)
+          WHERE "sessionId" = ANY ($1) AND status != 'withdraw'
           ORDER BY "sessionId", "createdAt" DESC
       `,
       [pagedSessionIds],
@@ -359,9 +378,8 @@ export class ChatService {
           FROM chat_messages m
                    LEFT JOIN chat_message_reads r
                              ON m.id = r."messageId" AND r."userId" = $2
-          WHERE m."sessionId" = ANY ($1)
+          WHERE m."sessionId" = ANY ($1) AND m.status != 'withdraw'
             AND r.id IS NULL
-            AND m.status != 'withdraw'
             AND m."senderId" != $2
           GROUP BY m."sessionId"
       `,
