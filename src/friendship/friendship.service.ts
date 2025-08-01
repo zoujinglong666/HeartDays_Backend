@@ -85,28 +85,69 @@ export class FriendshipService {
     return this.friendshipRepo.save(friendship);
   }
 
+  // async getFriendList() {
+  //   const userId = getLoginUser().id;
+  //   const friends = await this.friendshipRepo.find({
+  //     where: [
+  //       { user_id: userId, status: 'accepted' },
+  //       { friend_id: userId, status: 'accepted' },
+  //     ],
+  //   });
+  //   // 获取好友ID列表
+  //   const friendIds = friends.map((f) =>
+  //     f.user_id === userId ? f.friend_id : f.user_id,
+  //   );
+  //   if (friendIds.length === 0) return [];
+  //   // 批量查用户
+  //   const users = await this.userRepo.findByIds(friendIds);
+  //   // 只返回需要的字段（UserVO）
+  //   return users.map((u) => ({
+  //     id: u.id,
+  //     name: u.name,
+  //     avatar: u.avatar,
+  //     email: u.email,
+  //     userAccount: u.userAccount,
+  //   }));
+  // }
+
   async getFriendList() {
     const userId = getLoginUser().id;
-    const friends = await this.friendshipRepo.find({
+
+    // 查出所有与我有关的好友关系（双向都查）
+    const friendships = await this.friendshipRepo.find({
       where: [
         { user_id: userId, status: 'accepted' },
         { friend_id: userId, status: 'accepted' },
       ],
     });
-    // 获取好友ID列表
-    const friendIds = friends.map((f) =>
-      f.user_id === userId ? f.friend_id : f.user_id,
-    );
-    if (friendIds.length === 0) return [];
-    // 批量查用户
+
+    if (friendships.length === 0) return [];
+
+    // 构造好友ID和对应的备注 Map
+    const friendInfoMap = new Map<string, { nickname?: string }>();
+
+    for (const f of friendships) {
+      const friendId = f.user_id === userId ? f.friend_id : f.user_id;
+
+      // 只保留当前用户发起的记录中的备注
+      if (f.user_id === userId) {
+        friendInfoMap.set(friendId, { nickname: f.friend_nickname });
+      } else if (!friendInfoMap.has(friendId)) {
+        friendInfoMap.set(friendId, { nickname: undefined });
+      }
+    }
+
+    // 批量查询用户信息
+    const friendIds = [...friendInfoMap.keys()];
     const users = await this.userRepo.findByIds(friendIds);
-    // 只返回需要的字段（UserVO）
+
     return users.map((u) => ({
       id: u.id,
       name: u.name,
       avatar: u.avatar,
       email: u.email,
       userAccount: u.userAccount,
+      friendNickname: friendInfoMap.get(u.id)?.nickname ?? null,
     }));
   }
 

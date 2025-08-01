@@ -451,6 +451,7 @@ export class ChatGateway implements OnGatewayInit {
     // 通知会话中的所有成员消息已被撤回
     this.server.to(payload.sessionId).emit('messageWithdrawn', {
       messageId: payload.messageId,
+      id: payload.messageId,
       userId: payload.userId,
       timestamp: new Date(),
     });

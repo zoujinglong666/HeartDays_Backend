@@ -420,7 +420,6 @@ export class ChatService {
         const friend = singleSessionUserMap[session.id] as any;
         if (friend) {
           const remark = await this.friendshipService.getFriendRemark(friend.id);
-          console.log(remark,'remark');// ✅ await
           name = remark || friend.name || friend.userAccount || '对方';
           avatar = friend.avatar;
         }
