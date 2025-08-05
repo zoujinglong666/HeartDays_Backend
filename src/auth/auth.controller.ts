@@ -86,10 +86,9 @@ export class AuthController {
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效')
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效');
     }
-    await this.authService.logout(userId);
-    return { message: '登出成功' };
+    return await this.authService.logout(userId);
   }
 
   @Get('session')
@@ -103,7 +102,7 @@ export class AuthController {
     const user = req.user as any;
     const userId = user?.sub || user?.id;
     if (!userId) {
-      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效')
+      throw new BusinessException(ErrorCode.PARAMS_ERROR, '用户信息无效');
     }
     
     const session = await this.authService.getUserSession(userId);

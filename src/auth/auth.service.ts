@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -47,47 +47,53 @@ export class AuthService {
     if (!userAccount) {
       throw new BusinessException(ErrorCode.PARAMS_ERROR, '请输入账号或邮箱');
     }
-    const decryptedPassword = SimpleEncryptor.decrypt(password, 'mySecret');
-    const user = await this.validateUser(userAccount, decryptedPassword);
-    if (!user) {
+    try{
+      const decryptedPassword = SimpleEncryptor.decrypt(password, 'HeartDays0625');
+      const user = await this.validateUser(userAccount, decryptedPassword);
+      if (!user) {
+        throw new BusinessException(ErrorCode.PARAMS_ERROR, '账号或密码错误');
+      }
+      // 生成会话令牌和刷新令牌
+      const sessionToken = this.sessionService.generateSessionToken();
+      const refreshToken = this.sessionService.generateRefreshToken();
+
+      // 强制其他设备登出（单设备登录）
+      await this.sessionService.forceLogoutOtherDevices(user.id, sessionToken);
+
+      // 存储新会话
+      const ua = req?.headers['user-agent'] || '';
+      await this.sessionService.storeUserSession(
+        user.id,
+        sessionToken,
+        refreshToken,
+        deviceInfo,
+        ua,
+      );
+      const accessToken = this.generateToken(user, sessionToken);
+      return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        session_token: sessionToken,
+        expires_in: 2 * 60 * 60, // 2小时
+        refresh_expires_in: 7 * 24 * 60 * 60, // 7天
+      };
+    }catch(e){
       throw new BusinessException(ErrorCode.PARAMS_ERROR, '账号或密码错误');
     }
 
-    // 生成会话令牌和刷新令牌
-    const sessionToken = this.sessionService.generateSessionToken();
-    const refreshToken = this.sessionService.generateRefreshToken();
 
-    // 强制其他设备登出（单设备登录）
-    await this.sessionService.forceLogoutOtherDevices(user.id, sessionToken);
 
-    // 存储新会话
-    const ua = req?.headers['user-agent'] || '';
-    await this.sessionService.storeUserSession(
-      user.id,
-      sessionToken,
-      refreshToken,
-      deviceInfo,
-      ua,
-    );
-    const accessToken = this.generateToken(user,sessionToken);
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      session_token: sessionToken,
-      expires_in: 2 * 60 * 60, // 2小时
-      refresh_expires_in: 7 * 24 * 60 * 60, // 7天
-    };
+
   }
 
-   generateToken(user: User, sessionToken: string) {
+  generateToken(user: User, sessionToken: string) {
     const payload = {
       userAccount: user.userAccount,
       sub: user.id,
       roles: user.roles,
       sessionToken,
     };
-    const accessToken = this.jwtService.sign(payload);
-    return accessToken;
+    return this.jwtService.sign(payload);
   }
 
   async register(registerUserDto: RegisterUserDto) {
@@ -136,9 +142,10 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(registerUserDto.password, 10);
 
     // 创建用户
+    const randomCode = Math.random().toString(36).slice(2, 10); // 8位随机字母+数字
     const user = this.userRepository.create({
       ...registerUserDto,
-      name: '未命名',
+      name: `user_${randomCode}`,
       roles: ['user'],
       password: hashedPassword,
     });
@@ -194,16 +201,21 @@ export class AuthService {
       throw new BusinessException(
         ErrorCode.REFRESH_TOKEN_INVALID,
         '刷新令牌无效或已过期',
+        HttpStatus.UNAUTHORIZED, // 401
       );
     }
     const canRefresh = await this.sessionService.checkRefreshLimit(
       refreshInfo.userId,
     );
     if (!canRefresh) {
+
+
       throw new BusinessException(
-        ErrorCode.TOO_MANY_REQUESTS,
+        ErrorCode.REFRESH_TOKEN_INVALID,
         '刷新操作过于频繁，请稍后再试',
+        HttpStatus.UNAUTHORIZED, // 401
       );
+
     }
 
     // 获取用户信息
@@ -212,10 +224,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BusinessException(
-        ErrorCode.NOT_FOUND,
-        '用户不存在或已被禁用',
-      );
+      throw new BusinessException(ErrorCode.NOT_FOUND, '用户不存在或已被禁用');
     }
 
     // 生成新的会话令牌和刷新令牌
@@ -238,7 +247,7 @@ export class AuthService {
     );
 
     // 生成新的访问令牌
-    const accessToken = this.generateToken(user,newSessionToken);
+    const accessToken = this.generateToken(user, newSessionToken);
     return {
       access_token: accessToken,
       refresh_token: newRefreshToken,
@@ -247,8 +256,6 @@ export class AuthService {
       refresh_expires_in: 7 * 24 * 60 * 60, // 7天
     };
   }
-
-
 
   /**
    * 获取用户信息（用于登录响应）

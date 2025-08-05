@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
-import { randomUUID } from 'node:crypto';
-import { randomBytes } from 'crypto';
+
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly redisService: RedisService) {}
+  constructor(private readonly redisService: RedisService) {
+
+  }
+
 
   /**
    * 生成会话令牌
@@ -93,16 +95,21 @@ export class SessionService {
   }
 
   /**
-   * 校验刷新频率限制（每分钟最多3次）
+   * 校验刷新频率限制（每分钟最多5次）
    * 超过则返回false，否则返回true
    */
+
   async checkRefreshLimit(userId: string): Promise<boolean> {
+    const REFRESH_LIMIT_WINDOW = 60; // 秒
+    const REFRESH_LIMIT_COUNT = 5;
     const key = `refresh_limit:${userId}`;
     const count = await this.redisService.incr(key);
+
     if (count === 1) {
-      await this.redisService.expire(key, 60); // 1分钟
+      await this.redisService.expire(key, REFRESH_LIMIT_WINDOW);
     }
-    return count <= 3;
+
+    return count <= REFRESH_LIMIT_COUNT;
   }
 
   /**

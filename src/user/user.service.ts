@@ -87,7 +87,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new BusinessException(ErrorCode.NOT_FOUND, '用户不存在')
+      throw new BusinessException(ErrorCode.NOT_FOUND, '用户不存在');
     }
 
     return user;
@@ -127,7 +127,10 @@ export class UserService {
       );
       if (existingUser) {
 
-        throw new BusinessException(ErrorCode.DATA_EXIST, '账号已被其它用户使用');
+        throw new BusinessException(
+          ErrorCode.DATA_EXIST,
+          '账号已被其它用户使用',
+        );
       }
     }
 

@@ -32,7 +32,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     );
 
     if (!isValidSession) {
-      throw new BusinessException(ErrorCode.NOT_LOGIN, '会话已失效，请重新登录');
+      throw new BusinessException(
+        ErrorCode.NOT_LOGIN,
+        '会话已失效，请重新登录',
+      );
     }
 
     return {

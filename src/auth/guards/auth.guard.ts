@@ -41,13 +41,13 @@ export class AuthGuard implements CanActivate {
     }
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
-
+    console.log(token, 'token 普通请求');
     if (!token) {
+      console.log(token, 'token 无token');
       throw new BusinessException(
-        ErrorCode.TOKEN_MISSING,
+        ErrorCode.NOT_LOGIN,
         '未提供认证令牌，请先登录',
       );
-
     }
 
     try {

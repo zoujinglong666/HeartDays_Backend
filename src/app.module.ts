@@ -16,6 +16,7 @@ import configuration from './config/configuration';
 import { AnniversaryCacheTask } from './task/anniversaries-cache.task';
 import { ChatModule } from './chat/chat.module';
 import { FriendshipModule } from './friendship/friendship.module';
+import { TokenCleanupTask } from './task/token-ceanup.task';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -68,6 +69,7 @@ import { FriendshipModule } from './friendship/friendship.module';
       useClass: AuthGuard,
     },
     AnniversaryCacheTask, // 注册定时任务
+    TokenCleanupTask
   ],
 })
 export class AppModule {}

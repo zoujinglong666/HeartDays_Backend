@@ -1,12 +1,24 @@
-export class BusinessException extends Error {
-  public readonly code: number;
-  public readonly detail: string;
+import { HttpException, HttpStatus } from '@nestjs/common';
 
-  constructor(resultCode: ErrorCode, overrideMessage?: string) {
-    super(overrideMessage ?? resultCode.message);
+export class BusinessException extends HttpException {
+  public readonly code: number;
+
+  constructor(
+    resultCode: ErrorCode,
+    overrideMessage?: string,
+    statusCode: HttpStatus = HttpStatus.BAD_REQUEST, // 默认 400
+  ) {
+    super(
+      {
+        code: resultCode.code,
+        message: overrideMessage ?? resultCode.message,
+      },
+      statusCode,
+    );
     this.code = resultCode.code;
   }
 }
+
 
 export class ErrorCode {
   constructor(
@@ -43,7 +55,6 @@ export class ErrorCode {
   // ✅ 系统错误
   static readonly SYSTEM_ERROR = new ErrorCode(50000, '系统内部异常');
 
-
   static readonly DATA_EXIST = new ErrorCode(40900, '数据已存在');
 
   static readonly NOT_FOUND = new ErrorCode(40400, '数据不存在');
@@ -52,16 +63,5 @@ export class ErrorCode {
     52000,
     '数据库查询失败',
   );
-  static readonly DB_INSERT_ERROR = new ErrorCode(52100, '数据插入失败');
-  static readonly DB_UPDATE_ERROR = new ErrorCode(52200, '数据更新失败');
 
-  // ✅ 请求限制与依赖服务
-  static readonly TOO_MANY_REQUESTS = new ErrorCode(
-    42900,
-    '请求过于频繁',
-  );
-  static readonly DEPENDENT_SERVICE_ERROR = new ErrorCode(
-    50300,
-    '依赖服务调用失败',
-  );
 }

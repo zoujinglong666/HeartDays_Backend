@@ -82,7 +82,7 @@ export class PlanService {
 
     // 检查是否是用户自己的数据
     if (plan.user_id !== user.id) {
-      throw new BusinessException(ErrorCode.NO_AUTH,'只能删除自己的数据');
+      throw new BusinessException(ErrorCode.NO_AUTH, '只能删除自己的数据');
     }
 
     return await this.planRepository.delete(id);

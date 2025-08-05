@@ -86,5 +86,27 @@ export class RedisService {
   }
 
 
+  async getJson<T = any>(key: string): Promise<T | null> {
+    const val = await this.get(key);
+    if (!val) return null;
+    try {
+      return JSON.parse(val) as T;
+    } catch (e) {
+      console.error('Redis JSON parse error:', e);
+      return null;
+    }
+  }
+
+  async setJson(key: string, value: any, ttlSeconds?: number): Promise<void> {
+    const str = JSON.stringify(value);
+    if (ttlSeconds) {
+      await this.set(key, str, ttlSeconds);
+    } else {
+      await this.set(key, str);
+    }
+  }
+
+
+
 
 }

@@ -18,6 +18,7 @@ import {
 } from '../common/exceptions/business.exception';
 import { Friendship } from '../friendship/friendship.entity';
 import { FriendshipService } from '../friendship/friendship.service';
+import { ChatGateway } from './chat.gateway';
 
 @Injectable()
 export class ChatService {
@@ -410,41 +411,45 @@ export class ChatService {
     }
 
     // 6. 组装结果
-    const records = await Promise.all(sessions.map(async (session) => {
-      const lastMsg = lastMessages[session.id];
-      const unread = unreadCounts[session.id] || 0;
-      let name: string = session.name;
-      let avatar: string | undefined = undefined;
+    const records = await Promise.all(
+      sessions.map(async (session) => {
+        const lastMsg = lastMessages[session.id];
+        const unread = unreadCounts[session.id] || 0;
+        let name: string = session.name;
+        let avatar: string | undefined = undefined;
 
-      if (session.type === 'single') {
-        const friend = singleSessionUserMap[session.id] as any;
-        if (friend) {
-          const remark = await this.friendshipService.getFriendRemark(friend.id);
-          name = remark || friend.name || friend.userAccount || '对方';
-          avatar = friend.avatar;
-        }
-      }
-
-      return {
-        sessionId: session.id,
-        type: session.type,
-        name,
-
-        avatar,
-        lastMessage: lastMsg
-          ? {
-            content: lastMsg.content,
-            type: lastMsg.type,
-            createdAt: lastMsg.createdat || lastMsg.createdAt,
-            senderId: lastMsg.senderid || lastMsg.senderId,
-            status: lastMsg.status,
+        if (session.type === 'single') {
+          const friend = singleSessionUserMap[session.id] as any;
+          if (friend) {
+            const remark = await this.friendshipService.getFriendRemark(
+              friend.id,
+            );
+            name = remark || friend.name || friend.userAccount || '对方';
+            avatar = friend.avatar;
           }
-          : null,
-        unreadCount: unread,
-        isPinned: !!pinMap[session.id],
-        isMuted: !!muteMap[session.id],
-      };
-    }));
+        }
+
+        return {
+          sessionId: session.id,
+          type: session.type,
+          name,
+
+          avatar,
+          lastMessage: lastMsg
+            ? {
+                content: lastMsg.content,
+                type: lastMsg.type,
+                createdAt: lastMsg.createdat || lastMsg.createdAt,
+                senderId: lastMsg.senderid || lastMsg.senderId,
+                status: lastMsg.status,
+              }
+            : null,
+          unreadCount: unread,
+          isPinned: !!pinMap[session.id],
+          isMuted: !!muteMap[session.id],
+        };
+      }),
+    );
 
     return {
       total,
@@ -455,8 +460,6 @@ export class ChatService {
       hasPrev: page > 1,
       records, // ✅ 已解析完毕的对象数组
     };
-
-
   }
 
   /**
@@ -541,4 +544,6 @@ export class ChatService {
 
     return unreadMessages;
   }
+
+
 }
