@@ -2,87 +2,91 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { requestContext } from '../../common/context/request-context';
 import { RedisService } from '../../redis/redis.service';
 import { SessionService } from '../session.service';
 import { BusinessException, ErrorCode } from '../../common/exceptions/business.exception';
-// 该代码实现了一个基于 JWT 的守卫（AuthGuard），用于验证用户身份。功能如下：
-//
-// 1. **判断是否为公开接口**：通过 `@Public()` 装饰器标记的接口无需认证。
-// 2. **提取请求头中的 Token**：从 `Authorization` 头中提取 Bearer 类型的 token。
-// 3. **验证 Token 合法性**：使用 `jwtService.verifyAsync` 验证 token 是否有效。
-// 4. **设置用户信息或抛出异常**：token 有效则将解析出的用户信息挂载到 `request['user']`，否则抛出未授权异常。
-//
-// 若通过验证则返回 `true`，允许访问控制器方法；否则阻止访问。
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { requestContext } from '../../common/context/request-context';
+
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private jwtService: JwtService,
-    private reflector: Reflector,
-    private redisService: RedisService,
-    private sessionService: SessionService,
+    private readonly jwtService: JwtService,
+    private readonly reflector: Reflector,
+    private readonly redisService: RedisService,
+    private readonly sessionService: SessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 检查是否是公开接口
+    // 1. 公开接口直接放行
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
+    if (isPublic) return true;
 
-    if (isPublic) {
-      return true;
-    }
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
-    console.log(token, 'token 普通请求');
     if (!token) {
-      console.log(token, 'token 无token');
       throw new BusinessException(
-        ErrorCode.NOT_LOGIN,
+        ErrorCode.TOKEN_MISSING,
         '未提供认证令牌，请先登录',
       );
     }
 
     try {
+      // 2. 验证 JWT
       const payload = await this.jwtService.verifyAsync(token);
-      // 验证会话是否有效
+
+      // 3. 取出 sessionToken
       const sessionToken = payload.sessionToken;
       if (!sessionToken) {
         throw new BusinessException(
-          ErrorCode.NOT_LOGIN,
-          '未提供认证令牌，请先登录',
+          ErrorCode.TOKEN_MISSING,
+          '令牌缺少 sessionToken',
         );
       }
 
-      // 验证会话是否在Redis中存在且有效
-      const sessionInfo =
-        await this.sessionService.validateSessionToken(sessionToken);
-      if (!sessionInfo || sessionInfo.userId !== payload.sub) {
-
+      // 4. 校验 Redis 会话
+      const sessionInfo = await this.sessionService.validateSessionToken(sessionToken);
+      if (!sessionInfo || String(sessionInfo.userId) !== String(payload.sub)) {
         throw new BusinessException(
           ErrorCode.NOT_LOGIN,
           '会话已失效，请重新登录',
         );
       }
 
-      // 存储到 AsyncLocalStorage
+      // 5. 挂载用户信息
       request['user'] = payload;
-      const userId = request.user?.sub || request.user?.id || '';
+
+      // 6. 记录在线状态
+      const userId = payload.sub || payload.id;
       if (userId) {
-        await this.redisService.set(`online:user:${userId}`, '1', 60 * 10); // 10分钟过期
+        await this.redisService.set(
+          `online:user:${userId}`,
+          '1',
+          10 * 60, // 10 分钟
+        );
       }
-      requestContext.getStore()!.user = request.user;
+
+      // 7. 写入 AsyncLocalStorage
+      const store = requestContext.getStore();
+      if (store) store.user = payload;
+
       return true;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
+    } catch (error: any) {
+      // 8. 精确异常分类
+      if (error instanceof BusinessException) throw error;
+
+      if (error.name === 'TokenExpiredError') {
+        throw new BusinessException(ErrorCode.TOKEN_EXPIRED);
+      }
+      if (error.name === 'JsonWebTokenError') {
+        throw new BusinessException(ErrorCode.TOKEN_INVALID);
       }
 
       throw new BusinessException(
@@ -93,7 +97,8 @@ export class AuthGuard implements CanActivate {
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return undefined;
+    return authHeader.substring(7);
   }
 }

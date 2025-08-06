@@ -17,6 +17,9 @@ import { AnniversaryCacheTask } from './task/anniversaries-cache.task';
 import { ChatModule } from './chat/chat.module';
 import { FriendshipModule } from './friendship/friendship.module';
 import { TokenCleanupTask } from './task/token-ceanup.task';
+import { TodoReminderTask } from './task/todo-reminder.task';
+import { TodoModule } from './todo/todo.module';
+import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -54,6 +57,8 @@ import { TokenCleanupTask } from './task/token-ceanup.task';
     AnniversaryModule,
     FriendshipModule,
     ChatModule,
+    TodoModule,
+    NotificationModule,
   ],
   providers: [
     {
@@ -69,7 +74,8 @@ import { TokenCleanupTask } from './task/token-ceanup.task';
       useClass: AuthGuard,
     },
     AnniversaryCacheTask, // 注册定时任务
-    TokenCleanupTask
+    TokenCleanupTask,
+    TodoReminderTask
   ],
 })
 export class AppModule {}
