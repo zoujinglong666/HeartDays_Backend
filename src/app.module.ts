@@ -74,7 +74,7 @@ import { NotificationModule } from './notification/notification.module';
       useClass: AuthGuard,
     },
     AnniversaryCacheTask, // 注册定时任务
-    TokenCleanupTask,
+    // TokenCleanupTask,
     TodoReminderTask
   ],
 })

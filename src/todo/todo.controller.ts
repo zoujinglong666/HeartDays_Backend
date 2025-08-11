@@ -17,6 +17,7 @@ import { UpdateTodoStatusDto } from './dto/update-todo-status.dto';
 import { UpdateTodoOrderDto } from './dto/update-todo-order.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { DeleteDto } from '../common/dto/delete.dto';
 
 @ApiTags('todos')
 @ApiBearerAuth()
@@ -25,34 +26,34 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
-  @Post()
+  @Post("add")
   @ApiOperation({ summary: '创建待办事项' })
   create(@Body() createTodoDto: CreateTodoDto) {
     return this.todoService.create(createTodoDto);
   }
 
-  @Get()
+  @Get("list")
   @ApiOperation({ summary: '获取待办事项列表' })
   findAll(@Query() queryDto: TodoQueryDto) {
     return this.todoService.findAll(queryDto);
   }
 
-  @Get(':id')
+  @Get('get/:id')
   @ApiOperation({ summary: '获取单个待办事项' })
   findOne(@Param('id') id: string) {
     return this.todoService.findOne(id);
   }
 
-  @Get(':id/children')
+  @Get('get/:id/children')
   @ApiOperation({ summary: '获取子待办事项' })
   findChildren(@Param('id') id: string) {
     return this.todoService.findChildren(id);
   }
 
-  @Patch(':id')
+  @Post('update')
   @ApiOperation({ summary: '更新待办事项' })
-  update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto) {
-    return this.todoService.update(id, updateTodoDto);
+  update( @Body() updateTodoDto: UpdateTodoDto) {
+    return this.todoService.update(updateTodoDto.id, updateTodoDto);
   }
 
   @Post('status')
@@ -61,10 +62,10 @@ export class TodoController {
     return this.todoService.updateStatus(updateStatusDto);
   }
 
-  @Delete(':id')
+  @Post('delete')
   @ApiOperation({ summary: '删除待办事项' })
-  remove(@Param('id') id: string) {
-    return this.todoService.remove(id);
+  remove(@Body() deleteDto: DeleteDto) {
+    return this.todoService.remove(deleteDto.id);
   }
 
   @Post('order')

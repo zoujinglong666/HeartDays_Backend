@@ -2,20 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, IsUUID, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PriorityLevel } from '../../enums/priorityEnum';
+import { PaginateDto } from '../../common/dto/paginate.dto';
 
-export class TodoQueryDto {
-  @ApiProperty({ description: '页码', required: false, default: 1 })
-  @IsOptional()
-  @IsNumber()
-  @Type(() => Number)
-  page?: number = 1;
-
-  @ApiProperty({ description: '每页数量', required: false, default: 10 })
-  @IsOptional()
-  @IsNumber()
-  @Type(() => Number)
-  limit?: number = 10;
-
+export class TodoQueryDto extends PaginateDto{
   @ApiProperty({ description: '是否完成', required: false })
   @IsOptional()
   @IsBoolean()

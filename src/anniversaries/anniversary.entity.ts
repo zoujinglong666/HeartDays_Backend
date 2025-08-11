@@ -47,14 +47,14 @@ export class Anniversary {
 
   @ApiProperty({
     description: '重复类型',
-    enum: ['daily', 'weekly', 'monthly', 'yearly'],
+    enum: ['daily', 'weekly', 'monthly', 'yearly', 'none'],
     required: false,
   })
   @Column({
     length: 10,
     nullable: true,
   })
-  repetitive_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  repetitive_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'none';
 
   @ApiProperty({ description: '用户ID', required: false })
   @Column({ type: 'uuid', nullable: true })

@@ -2,7 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, IsUUID, IsDate, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PriorityLevel } from '../../enums/priorityEnum';
+import { Expose } from 'class-transformer';
 
+// @Expose({ name: 'parentId' })   // 接收 parentId
+// @IsOptional()
+// @IsUUID()
 export class CreateTodoDto {
   @ApiProperty({ description: '标题', example: '完成项目文档' })
   @IsString()

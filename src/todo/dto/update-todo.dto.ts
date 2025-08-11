@@ -4,6 +4,11 @@ import { Type } from 'class-transformer';
 import { PriorityLevel } from '../../enums/priorityEnum';
 
 export class UpdateTodoDto {
+
+  @ApiProperty({ description: 'ID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsUUID()
+  id: string;
+
   @ApiProperty({ description: '标题', example: '完成项目文档', required: false })
   @IsOptional()
   @IsString()
